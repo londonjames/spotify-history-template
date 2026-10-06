@@ -39,8 +39,9 @@ and the finished site stay there unless you choose to publish the site.
      can appear. `python3 review.py --keep-all` clears them all, or use
      `--hide "Show Name"` for any you would not want on a page. Then run
      `./refresh` again.
-   - The first run looks up a cover for every song and album, so it takes a while.
-     Later runs only fetch what is new.
+   - The first run looks up a cover for every song and album, so allow 20 to
+     30 minutes. Later runs only fetch what is new. Photos of podcast guests
+     come from Wikipedia 250 at a time, so each further `./refresh` adds more.
 4. Run `./serve` and open the address it prints.
 
 ## Making it yours

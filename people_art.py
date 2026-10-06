@@ -82,12 +82,27 @@ def ringer(name):
     return m.group(0) if m else None
 
 
+def ask(params):
+    """One Wikipedia query at a polite pace. When it says to slow down it is
+    waited out once; if it still refuses, that is an error, so the person is
+    asked again on a later run and not recorded as having no picture."""
+    for attempt in (0, 1):
+        r = requests.get(WIKI, headers=UA, timeout=30, params=params)
+        time.sleep(1)
+        if r.status_code == 429 and attempt == 0:
+            time.sleep(min(60, int(r.headers.get("retry-after") or 30)) + 1)
+            continue
+        break
+    if r.status_code == 429 or r.status_code >= 500:
+        raise RuntimeError(f"wikipedia answered {r.status_code}")
+    return r
+
+
 def wiki(name, show):
     n = clean(name)
-    r = requests.get(WIKI, headers=UA, timeout=30, params={
+    r = ask({
         "action": "query", "format": "json", "list": "search", "srlimit": 10,
         "srsearch": f'"{n}" ("{show}" OR podcast)'})
-    time.sleep(0.3)
     if r.status_code != 200:
         return None
     titles = [x["title"] for x in r.json()["query"]["search"]]
@@ -98,7 +113,7 @@ def wiki(name, show):
     pick = exact[:1] or (qual if len(qual) == 1 else [])
     if not pick:
         return None
-    p = requests.get(WIKI, headers=UA, timeout=30, params={
+    p = ask({
         "action": "query", "format": "json", "formatversion": 2, "titles": pick[0],
         "prop": "pageimages|description", "piprop": "thumbnail",
         "pithumbsize": 240}).json()["query"]["pages"][0]
@@ -121,6 +136,12 @@ def main():
     # Hundreds of lookups in a row, as on a first run, get turned away part-way
     # through. A lookup that fails is left unanswered and asked again on the
     # next run, and after a few failures in a row the rest wait for next time.
+    # At most this many per run, so a first run is not held up for half an
+    # hour; each later ./refresh asks for the next batch.
+    PER_RUN = 250
+    if len(todo) > PER_RUN:
+        print(f"  asking for {PER_RUN} now; the other {len(todo) - PER_RUN} on later runs")
+        todo = todo[:PER_RUN]
     misses = 0
     for i, n in enumerate(todo, 1):
         shows = [s for s, _, _ in graph[n]]
@@ -130,8 +151,7 @@ def main():
             misses = 0
         except Exception:
             misses += 1
-            time.sleep(5)
-            if misses >= 5:
+            if misses >= 3:
                 print(f"  stopped at {i}/{len(todo)}; the rest are asked on the next run")
                 break
         if i % 50 == 0:
