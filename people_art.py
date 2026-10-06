@@ -118,10 +118,22 @@ def main():
     todo = [n for n in names if n not in hand
             and (n not in g or (retry and g[n] is None))]
     print(f"{len(names)} people, {len(todo)} to ask, {len(hand)} by hand")
+    # Hundreds of lookups in a row, as on a first run, get turned away part-way
+    # through. A lookup that fails is left unanswered and asked again on the
+    # next run, and after a few failures in a row the rest wait for next time.
+    misses = 0
     for i, n in enumerate(todo, 1):
         shows = [s for s, _, _ in graph[n]]
-        url = ringer(n) if RINGER_SHOWS & set(shows) else None
-        g[n] = url or wiki(n, shows[0])
+        try:
+            url = ringer(n) if RINGER_SHOWS & set(shows) else None
+            g[n] = url or wiki(n, shows[0])
+            misses = 0
+        except Exception:
+            misses += 1
+            time.sleep(5)
+            if misses >= 5:
+                print(f"  stopped at {i}/{len(todo)}; the rest are asked on the next run")
+                break
         if i % 50 == 0:
             print(f"  {i}/{len(todo)}")
     g.update(hand)
