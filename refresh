@@ -51,6 +51,8 @@ echo "── pictures ───────────────────�
 # a cache and only ask Spotify about what they have not seen, so a routine run
 # is a handful of requests. Not fatal here: check_art.py below is what stops
 # the build if a row at the top of a list would be left with an empty square.
+# They read web/listening.db, which does not exist yet on a first run.
+[ -f web/listening.db ] || python3 publish_db.py > /dev/null
 python3 art.py | tail -4 || echo "  song, album and artist pictures not updated."
 python3 art_shows.py | tail -1 || echo "  podcast covers not updated."
 
@@ -78,6 +80,7 @@ fi
 # pass fetches those, so an unattended run does not stop here for that.
 if ! python3 check_art.py > /dev/null 2>&1; then
   python3 art.py | tail -4 || true
+  python3 art_shows.py | tail -1 || true
   python3 publish_db.py > /dev/null
   python3 web_data.py > /dev/null
 fi

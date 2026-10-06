@@ -108,7 +108,7 @@ def wiki(name, show):
 
 
 def main():
-    cache = json.load(open(CACHE))
+    cache = json.load(open(CACHE)) if os.path.exists(CACHE) else {}
     g = cache.setdefault("g", {})
     d = json.load(open(INDEX))
     graph = d["graph"]

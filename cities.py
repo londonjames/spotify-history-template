@@ -78,7 +78,12 @@ def dataset():
         if os.path.exists(path):
             return path
         try:
-            urllib.request.urlretrieve(FEED.format(tag), path)
+            # requests, not urllib: some Python installs ship without the
+            # certificates urllib needs, and the download fails silently.
+            import requests
+            r = requests.get(FEED.format(tag), timeout=120)
+            r.raise_for_status()
+            open(path, "wb").write(r.content)
             print(f"  fetched {tag}")
             return path
         except Exception:
