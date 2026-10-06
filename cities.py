@@ -20,7 +20,7 @@ that can be several hundred miles from the phone. Three rules get it honest.
 Nothing here is published but city names, counts and years. The addresses stay
 on this machine.
 """
-import bisect, collections, csv, glob, gzip, ipaddress, json, os, sys
+import bisect, collections, csv, datetime, glob, gzip, ipaddress, json, os, sys
 import urllib.request
 
 import config
@@ -71,7 +71,8 @@ def dataset():
     """The free DB-IP city table, fetched once a month and kept locally."""
     os.makedirs(CACHE, exist_ok=True)
     for back in range(0, 4):
-        y, m = 2026, 9 - back
+        today = datetime.date.today()
+        y, m = today.year, today.month - back
         while m < 1: y, m = y - 1, m + 12
         tag = f"{y}-{m:02d}"
         path = os.path.join(CACHE, f"dbip-{tag}.csv.gz")
@@ -222,7 +223,6 @@ def main():
         if is_bay(cc, city) or n < 3 or city in NOT_A_TRIP:
             continue
         picked[day] = (cc, city)
-    import datetime
     near = lambda day, key: any(
         picked.get((datetime.date.fromisoformat(day) + datetime.timedelta(d)).isoformat()) == key
         for d in (-3, -2, -1, 1, 2, 3))
