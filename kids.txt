@@ -1,0 +1,11 @@
+# Listening on your account that isn't yours: children, a partner, a speaker
+# someone else uses. Tagged plays stay in the totals under "Everyone" and are
+# left out of your own lists.
+#
+# Three line formats:
+#   Name                        the whole artist, or a podcast with that name
+#   Artist Name :: Track Name   just that one track
+#   ~ Album name                any album whose name STARTS WITH this text
+#
+# Matching ignores case and edition labels ("- Remastered"). Edit freely and
+# run ./refresh again. `./sh.py kids` prints what this file catches.

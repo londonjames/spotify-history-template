@@ -1,0 +1,6 @@
+[
+  {"id": "S1", "label": "First years", "from": "2011-07", "to": "2014-11"},
+  {"id": "S2", "label": "Later years", "from": "2014-12", "to": "2026-09",
+   "signature": {"track": "Cruel Summer", "artist": "Taylor Swift",
+                 "uri": "spotify:track:1BxfuPKGuaTgP7aM0Bbdwr"}}
+]

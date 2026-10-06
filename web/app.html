@@ -1,0 +1,3547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Listening History</title>
+<!-- Mettle's mark with the letter changed, so the two sit together in a tab
+     strip and on a home screen. The SVG is rounded for the browser; the PNG is
+     a full-bleed square because iOS applies its own mask and would round it
+     twice. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/icon.svg?v2" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v2">
+<meta name="theme-color" content="#1c1c1c">
+<meta name="description" content="Every artist, song, podcast and person I have played on Spotify.">
+<!-- What a pasted link shows in WhatsApp, iMessage, Slack and the rest. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Listening">
+<meta property="og:title" content="Listening: my Spotify history">
+<meta property="og:description" content="Every artist, song, podcast and person I have played on Spotify.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Listening: my Spotify history">
+<meta name="twitter:description" content="Every artist, song, podcast and person I have played on Spotify.">
+<style>
+/* Design tokens lifted from App.css on the author's other sites, so this sits in the
+   same system as /films, /books and /shows: #1c1c1c ground, #2a2a2a cards at
+   8px, system-ui, and the fixed 75px header. Every number is set in mono.
+
+   Blue does two jobs and they are kept apart, as they are in mettle and in the
+   ratings pages: one value fills data marks, a second, heavier one fills the
+   control you have pressed. A single hue doing both makes a selected filter and
+   a tall bar read as the same kind of thing. Red is reserved for errors. */
+:root{
+  /* Spotify's own grounds: near-black page, lifted cards. */
+  --bg:#121212; --panel:#1f1f1f; --panel-2:#2a2a2a;
+  --line:rgba(255,255,255,.13); --rule:rgba(255,255,255,.14);
+  /* Measured against the #1c1c1c ground rather than picked by eye. The old
+     --faint #6d6d6d came to 3.3:1, under the floor for small text, and it was
+     carrying every 10px label on the page. These are 5.4:1 and 8.6:1. */
+  --ink:#e8e8e8; --dim:#b6b6b6; --faint:#949494;
+  /* Spotify green, since this is Spotify listening. The names stay "blue"
+     because every rule on the page already reads them. */
+  --blue:#1db954;        /* data marks: bars, at rest */
+  --blue-hi:#1ed760;     /* data marks: hovered or selected */
+  --blue-solid:#169c46;  /* a pressed control, always with white text */
+  --blue-ink:#1ed760;    /* identity: totals, links, the ready state */
+  --ink-hi:#f5f5f5;      /* emphasis without a hue */
+  --err:#f87171;
+  /* Seven sizes. There were thirty-one, and .76 / .78 / .8 / .82 / .84 / .85 /
+     .86rem are the same size to the eye while being different to the layout,
+     which is what made everything sit a pixel or two out of step. */
+  --t0:10px;   /* axis ticks, the smallest labels there are */
+  --t1:11px;   /* rank numbers, status lines, hints */
+  --t2:12px;   /* eyebrows, section headings, chips */
+  --t3:13px;   /* second lines, counts, the nav */
+  --t4:15px;   /* body: names in a list, buttons, notes */
+  --t5:17px;   /* a claim, a by-line */
+  --t6:20px;   /* the wordmark, the search field */
+  /* Three radii, not seven. 3px and 4px are the same corner, so are 6px and
+     8px, and a page that uses both of each has no corner of its own. */
+  --r-bar:2px; --r-sm:4px;  /* a tag, a small thumbnail */
+  --r:8px;     /* everything with a body: panels, fields, tiles */
+  --r-pill:99px;
+  /* Figtree is the closest free face to Spotify's Circular. Figures use it
+     too, with tabular digits so columns of numbers still line up. */
+  --ui:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:'Figtree',system-ui,-apple-system,sans-serif;
+}
+body{font-variant-numeric:tabular-nums}
+*{margin:0;padding:0;box-sizing:border-box}
+/* There was no focus style at all, so a keyboard could move through the page
+   without the page ever saying where it was. :focus-visible, so it shows for a
+   keyboard and stays out of the way of a mouse. */
+:focus-visible{outline:2px solid var(--blue-ink);outline-offset:2px;
+               border-radius:var(--r-sm)}
+/* A class that sets display wins against the user agent's [hidden]{display:none},
+   so .panels[hidden] was still a grid, still in flow, and still paying its top
+   margin. That was the blank space under the search field. */
+[hidden]{display:none!important}
+html{background:var(--bg)}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);line-height:1.5;
+     padding-top:75px;-webkit-font-smoothing:antialiased;
+     -moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+/* 1180, not 1400. At 1400 the leaderboard columns run past a comfortable line
+   and 182 bars read as wallpaper rather than a shape. */
+.wrap{max-width:1180px;margin:0 auto;padding:0 48px;width:100%}
+
+/* ---- header: 12 + 50 + 12 + 1px = 75, same geometry as the ratings pages --- */
+.hdr{position:fixed;top:0;left:0;right:0;background:var(--bg);z-index:100;
+     padding:12px 0 0;border-bottom:1px solid var(--rule)}
+.hdr .row{display:flex;align-items:center;justify-content:space-between;gap:16px;
+          height:62px;padding-bottom:12px}
+.brand{font-size:var(--t6);font-weight:600;letter-spacing:.15em;color:var(--ink);
+       flex:none;text-decoration:none}
+.brand:hover{color:var(--ink-hi)}
+.nav{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:flex-end}
+.nav a{font-size:var(--t4);letter-spacing:.05em;color:var(--dim);text-decoration:none;
+       transition:color .2s ease;white-space:nowrap}
+.nav a:hover,.nav a.on{color:var(--ink)}
+/* The first three links are pages of this site; the rest leave for the ratings
+   pages. Without the rule they read as one list and the film looked external. */
+.navsep{width:1px;height:.9rem;background:var(--rule);flex:none}
+
+main{padding:16px 0 96px}
+
+/* A section heading is a label, not a headline. The distance above it is what
+   says a new section has started, since every rule on the page is one colour. */
+/* 6rem is right between two sections of content. After the search field, with
+   nothing above it to fill the space, it reads as a hole. */
+
+/* It was 12px uppercase dim, which is exactly what the group headings under
+   it are, so the two levels of the outline were indistinguishable and the
+   17px card titles inside a section outranked the section. */
+h2.sec{font-size:var(--t6);font-weight:600;color:var(--ink);
+       text-transform:none;letter-spacing:-.01em;margin:32px 0 16px}
+.sec-note{color:var(--dim);font-size:var(--t4);margin-bottom:16px;max-width:70ch}
+.eyebrow{font-size:var(--t2);font-weight:600;letter-spacing:.13em;text-transform:uppercase;
+         color:var(--dim)}
+
+
+/* ---- questions -------------------------------------------------------------
+   This was a free-text box that sent the question to Opus, got a SELECT back and
+   ran it here. The querying half was the good half and it is kept: the answers
+   below are still SQL executed in this browser against the downloaded file. What
+   is gone is the model, and with it a public endpoint on a paid key that had no
+   working rate limit. Free-text questions are asked through the /spotify skill
+   in Claude Code instead, which reads the full history and costs nothing. */
+/* No card. It was the only section on the page wearing one, which is what made
+   it read as a console bolted on rather than a part of the page. */
+.ask{background:none;border:0;box-shadow:none;padding:0}
+.ask .lbl{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.ask .state{font-family:var(--mono);font-size:var(--t1);color:var(--faint)}
+.ask .state.ready{color:var(--blue-ink)}
+.egs{display:flex;gap:8px;flex-wrap:wrap}
+.eg{background:none;border:1px solid var(--line);border-radius:var(--r-pill);color:var(--dim);
+    font-family:var(--ui);font-size:var(--t3);padding:4px 12px;cursor:pointer;
+    transition:.15s}
+.eg:hover:not(:disabled){color:var(--ink);border-color:var(--faint)}
+.eg:disabled{opacity:.4;cursor:default}
+.eg[aria-pressed="true"]{background:var(--blue-solid);border-color:var(--blue-solid);
+                         color:#fff}
+.askfoot{margin-top:16px;font-size:var(--t3);color:var(--faint);line-height:1.5}
+.answer{margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:none}
+.answer.on{display:block}
+.answer .said{font-size:var(--t5);color:var(--ink);margin-bottom:16px}
+.answer .err{color:var(--err);font-size:var(--t4)}
+.sqlbox{margin-top:16px}
+.sqlbox summary{font-size:var(--t3);color:var(--faint);cursor:pointer;list-style:none;
+                letter-spacing:.04em}
+.sqlbox summary::-webkit-details-marker{display:none}
+.sqlbox summary:hover{color:var(--dim)}
+.sqlbox pre{margin-top:8px;background:var(--bg);border:1px solid var(--line);
+            border-radius:var(--r);padding:12px 12px;font-family:var(--mono);
+            font-size:var(--t2);color:var(--dim);overflow-x:auto;line-height:1.6}
+
+/* ---- generic result table -------------------------------------------------- */
+.tbl{width:100%;border-collapse:collapse;font-size:var(--t4)}
+.tbl th{text-align:left;font-size:var(--t1);font-weight:600;letter-spacing:.14em;
+        text-transform:uppercase;color:var(--faint);padding:0 12px 8px 0;
+        border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:8px 12px 8px 0;border-bottom:1px solid rgba(255,255,255,.045);
+        vertical-align:middle}
+.tbl td.n{font-family:var(--mono);font-size:var(--t4);color:var(--dim);
+          text-align:right;white-space:nowrap}
+.tbl tr:last-child td{border-bottom:0}
+.tbl .barcell{width:22%;min-width:70px;padding-left:2px}
+.bar{height:4px;background:rgba(255,255,255,.07);border-radius:var(--r-bar);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue);border-radius:var(--r-bar)}
+.scroller{overflow-x:auto}
+
+/* ---- controls -------------------------------------------------------------- */
+/* Two bare dropdowns reading "Everything" and "All time" did not say what
+   either one governs. Each carries its question, and the period comes first
+   because "when" is the one people reach for. */
+.controls{display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin:28px 0 0}
+.ctlpair{display:inline-flex;align-items:center;gap:8px}
+.ctllbl{font-size:var(--t1);font-weight:600;letter-spacing:.13em;
+        text-transform:uppercase;color:var(--faint)}
+.controls .gap{flex:1 1 auto;min-width:0}
+/* 44px is the floor for a finger. The chips were 25px tall. A tablet is a
+   touch screen too, so this follows the pointer as well as the width. */
+@media (max-width:700px),(pointer:coarse){
+  .chip,.eg{min-height:44px;padding-top:8px;padding-bottom:8px}
+  .pick{min-height:44px}
+  .more-btn{min-height:48px}
+  .col li{padding-top:8px;padding-bottom:8px}
+  /* Back, Copy link, Open in Spotify, the search clear and the nav links were
+     20 to 30px tall, which is half of what a finger needs. */
+  .back,.share{min-height:44px;display:inline-flex;align-items:center}
+  .nav a{min-height:44px;display:inline-flex;align-items:center}
+  .search .x{width:44px;height:44px;display:flex;align-items:center;
+             justify-content:center}
+}
+.chip{background:none;border:1px solid var(--line);border-radius:var(--r-pill);
+      padding:4px 12px;font-family:var(--ui);font-size:var(--t2);font-weight:600;
+      letter-spacing:.1em;text-transform:uppercase;color:var(--dim);cursor:pointer;
+      transition:.15s;white-space:nowrap}
+.chip:hover{color:var(--ink);border-color:var(--faint)}
+.chip[aria-pressed="true"]{background:var(--blue-solid);border-color:var(--blue-solid);color:#fff}
+.grp{display:flex;gap:4px;flex-wrap:wrap}
+
+/* ---- search ---------------------------------------------------------------- */
+/* In the bar rather than below the headline, which is where the ratings pages
+   keep it and where it stops being a thing you scroll past. */
+.search{position:relative;flex:1 1 auto;max-width:420px;min-width:0}
+.search input{width:100%;background:var(--panel);border:1px solid var(--line);
+              border-radius:var(--r);color:var(--ink);font-family:var(--ui);font-size:var(--t4);
+              padding:0 34px 0 34px;height:38px}
+.search input::placeholder{color:var(--faint)}
+.search input:focus{outline:none;border-color:var(--blue-ink);
+                    box-shadow:0 0 0 3px rgba(30,215,96,.15)}
+.search .lens{position:absolute;left:11px;top:50%;transform:translateY(-50%);
+              width:14px;height:14px;stroke:var(--faint);fill:none;stroke-width:2}
+.search .x{position:absolute;right:6px;top:50%;transform:translateY(-50%);
+           background:none;border:0;color:var(--faint);font-size:var(--t6);cursor:pointer;
+           display:none;line-height:1}
+.res{position:absolute;left:0;right:0;top:calc(100% + 10px);z-index:120;max-height:340px;
+     overflow-y:auto;background:var(--panel);border:1px solid var(--line);
+     border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.45);list-style:none;display:none}
+/* A four-character subtitle plus an ellipsis carries nothing, so the second
+   column goes rather than truncates where there is no room for it. */
+@media (max-width:700px){
+  .res li .s{display:none}
+  .res{max-height:min(60vh,420px)}
+}
+.res li{display:flex;align-items:center;gap:12px;padding:8px 16px;cursor:pointer;
+        border-bottom:1px solid rgba(255,255,255,.045)}
+.res li:last-child{border-bottom:0}
+.res li:hover,.res li.cur{background:var(--panel-2)}
+.res li .k{font-size:var(--t0);font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+           color:var(--faint);width:52px;flex:none}
+.res li.cur .k{color:var(--blue-ink)}
+.res li .t{font-size:var(--t4);color:var(--ink);flex:none;max-width:46%;
+           white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res li .s{font-size:var(--t3);color:var(--faint);flex:1;min-width:0;white-space:nowrap;
+           overflow:hidden;text-overflow:ellipsis}
+.res li .n{font-family:var(--mono);font-size:var(--t3);color:var(--dim);flex:none}
+.res .none{padding:16px;color:var(--faint);font-size:var(--t4);cursor:default;display:block}
+
+/* ---- the hero: title, totals, monthly chart -------------------------------- */
+/* The homepage used to open on a 48px headline over a row of 40px figures,
+   which was most of a phone screen spent saying what the site is before any of
+   it. One line, the figures inside the sentence rather than under it. */
+.hero{margin-top:12px}
+.hero.home{margin-top:20px}
+/* "#1 most-played person", the way Spotify Wrapped ranks things. */
+.rankbadge{display:inline-flex;align-items:center;gap:6px;background:var(--blue);color:#000;
+           font-weight:800;font-size:var(--t5);border-radius:var(--r-pill);padding:8px 16px;
+           white-space:nowrap}
+.rankbadge[hidden]{display:none}
+@media (max-width:700px){.rankbadge{font-size:var(--t3);padding:6px 12px}}
+.hero h1{min-width:0;font-size:clamp(1.9rem,4.6vw,3rem);font-weight:700;letter-spacing:-.025em;
+         line-height:1.06;margin-bottom:2px}
+/* Small, and allowed to wrap: "13,665 hours and 225,280 plays of Spotify
+   listening" is wider than a phone at any size worth reading. */
+.hero.home h1{font-size:clamp(1rem,2.4vw,1.6rem);font-weight:500;
+              letter-spacing:0;line-height:1.35;color:var(--ink);margin:0}
+.hero.home h1 b{font-family:var(--mono);font-weight:600;color:var(--ink);
+                letter-spacing:-.02em}
+.hero.home .totals,.hero.home .titlerow .th{display:none}
+/* 96px under a 48px headline was proportionate; under one line of 20px it was
+   a gap the size of the thing above it. */
+body:has(.hero.home) #boardctl{margin-top:32px}
+/* An eyebrow above the name, qualifying it. Under the photograph it read as a
+   caption on the picture instead. */
+.hero .by{color:var(--dim);font-size:var(--t2);font-weight:600;
+          letter-spacing:.13em;text-transform:uppercase;margin-bottom:8px}
+.hero .by:empty{display:none}
+/* The figure is what the page is, so it is set at the size of the thing it is
+   rather than a caption on the title. Label under the number, not beside it,
+   because at this size beside reads as a subtitle to the wrong thing. */
+/* Bottom-aligned, so the figures sit on one line and their labels sit on
+   another. Top-aligned, a date set smaller than the counts beside it put its
+   own label half a line above theirs, which is what made the row look bent. */
+.totals{display:flex;gap:16px 40px;flex-wrap:wrap;margin-top:16px;align-items:flex-end}
+.totals .lastp{flex:0 0 100%;margin:0;font-size:var(--t3);color:var(--dim)}
+.totals .lastp b{display:inline!important;font-size:inherit!important;letter-spacing:0!important;
+                 color:var(--ink);font-weight:600}
+@media (max-width:700px){
+  /* Four figures on one row on a phone, not two rows of two. */
+  .totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px}
+  .totals div{min-width:0!important}
+  .totals b{font-size:1.3rem!important}
+  .totals span{font-size:11px!important;letter-spacing:.02em!important;
+               line-height:1.25!important;white-space:normal!important;margin-top:4px!important}
+  .totals .lastp{grid-column:1/-1}
+}
+/* Content-width cells re-laid the whole row out for every subject, so the
+   figures jumped sideways as you moved between artists. A floor holds the
+   short ones (822 hours was 69px) on the same rhythm as the long ones. */
+.totals div{display:flex;flex-direction:column;justify-content:flex-end;
+            min-width:132px}
+/* 48px system-ui beside 49.6px mono is not a hierarchy, it is a near-miss.
+   The name is the subject and the figures are about it, so they are a clear
+   step below rather than a pixel and a half above. */
+.totals b{display:block;font-family:var(--mono);font-weight:600;color:var(--ink);
+          font-size:clamp(1.5rem,2.8vw,2rem);line-height:1;letter-spacing:-.025em}
+/* Without the database the page still draws and still searches what is inlined,
+   so nothing looked broken while half of it was missing. */
+.dberr{margin:12px 0 0;font-size:var(--t3);color:var(--err);display:flex;
+       gap:12px;align-items:center;flex-wrap:wrap}
+.dberr button{font:inherit;color:var(--ink);background:var(--panel-2);
+              border:1px solid var(--line);border-radius:var(--r-pill);
+              padding:8px 14px;min-height:44px;cursor:pointer}
+
+/* A figure that has not arrived reads as a rule, not as a number that happens
+   to be missing. */
+.totals b.wait{color:var(--faint);opacity:.55}
+.totals span{display:block;font-size:var(--t1);font-weight:600;letter-spacing:.1em;
+             text-transform:uppercase;color:var(--dim);margin-top:6px;
+             white-space:nowrap}
+
+/* The chart is the page, not a box on it. It sits on the ground, with the two
+   controls that belong to it on its own caption line. */
+.chart{margin-top:24px}
+#chartslot .chart{margin-top:56px}
+.chart .cap{display:flex;justify-content:space-between;align-items:center;gap:16px;
+            flex-wrap:wrap;margin-bottom:12px}
+.capctl{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.pick{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+      color:var(--dim);font-family:var(--ui);font-size:var(--t4);
+      padding:4px 30px 4px 8px;cursor:pointer;appearance:none;
+      background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),
+                       linear-gradient(135deg,var(--dim) 50%,transparent 50%);
+      background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;
+      background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.pick:hover,.pick:focus{color:var(--ink);border-color:var(--faint);outline:none}
+.pick:disabled{opacity:.4;cursor:default}
+.hint{margin-top:8px;font-size:var(--t1);letter-spacing:.06em;color:var(--faint);
+      font-family:var(--mono)}
+/* 210px read as a strip under the numbers. The shape of sixteen years is the
+   one thing here that is not a list, and it needs room to be a shape. */
+.plot{position:relative;height:clamp(230px,34vh,330px);margin-left:44px}
+.yax{position:absolute;left:-44px;top:0;bottom:0;width:38px}
+.yax span{position:absolute;right:0;transform:translateY(-50%);font-family:var(--mono);
+          font-size:var(--t0);color:var(--dim)}
+.grid{position:absolute;inset:0}
+.grid i{position:absolute;left:0;right:0;height:1px;background:rgba(255,255,255,.05)}
+.grid i.base{background:var(--line)}
+/* 1px is right for 182 bars and wrong for 16, where they abut into a single
+   silhouette and the years stop being countable. */
+.bars{position:absolute;inset:0;display:flex;align-items:flex-end;gap:1px}
+.bars.wide{gap:4px}
+.mo{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end;
+    position:relative;cursor:crosshair;touch-action:pan-y}
+.mo i{display:block;width:100%;background:var(--blue);border-radius:var(--r-bar) var(--r-bar) 0 0;
+      transition:background .12s ease,height .35s cubic-bezier(.22,.61,.36,1)}
+.mo:hover i,.mo.hot i{background:var(--blue-hi)}
+.mo.kid i{background:#5f5f5f}
+.mo:hover~.xax .tip{opacity:1}
+/* Year rules sit behind the bars so sixteen years stay countable at 182 bars. */
+.yrs{position:absolute;inset:0;pointer-events:none}
+.yrs i{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.06)}
+.xax{position:relative;margin-left:44px;height:18px}
+.xax span{position:absolute;transform:translateX(-50%);font-family:var(--mono);
+          font-size:var(--t0);color:var(--dim);top:4px}
+/* On the home page a year is a way in to that year. The padding is the
+   finger's share; the label itself stays where it was. */
+.xax.go span{cursor:pointer;padding:6px 4px;top:-2px}
+.xax.go span:hover{color:var(--ink)}
+.tip{position:absolute;z-index:20;background:#111;border:1px solid var(--line);
+     border-radius:var(--r);padding:8px 8px;font-size:var(--t3);color:var(--ink);
+     pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .1s;
+     box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.tip b{font-family:var(--mono);color:var(--blue-ink);font-weight:600}
+
+/* ---- panel grids ----------------------------------------------------------- */
+/* auto-fit rather than a fixed five: a column of leaderboard rows stops being
+   readable below about 250px and albums made it five. */
+/* The artists' play counts sat 24px above the next set of headings, so the
+   faces and the columns read as one crowded block rather than two things. */
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+      gap:32px;margin-top:56px}
+.col h3{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+        margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.col h3 .eyebrow.unit{color:var(--blue-ink)}
+.col ol{list-style:none}
+.col li{padding:8px 0 8px;border-bottom:1px solid rgba(255,255,255,.045);
+        cursor:pointer}
+.col li:hover{background:rgba(255,255,255,.04)}
+/* Centred, not baseline-aligned: a 34px square sitting on a text baseline
+   pushes the row box past its own height, so a column with thumbnails ran six
+   pixels taller per row than one without. */
+/* The 34px square was a bullet point beside the text, and the bar under it ran
+   the full width of the column, so the row gave most of its space to a grey
+   line and almost none to the record. The picture is the height of the row and
+   the bar takes what is left beside it. */
+.col li{display:flex;align-items:center;gap:14px}
+.col li .th.rw{width:58px;height:58px;border-radius:6px;flex:none}
+.col li .meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.col li .line{display:flex;align-items:baseline;gap:8px}
+/* A grid item defaults to min-width:auto and will not shrink below its content,
+   so the column computed 534px inside a 355px phone and pushed the play counts
+   off the right of the screen. Top songs was a ranked list with no numbers. */
+.col{min-width:0}
+.col li .rk{font-family:var(--mono);font-size:var(--t1);color:var(--faint);
+            width:19px;flex:none}
+/* Every row is the height of the picture whether or not one arrived, so three
+   columns side by side stay in step line for line. */
+.col li{min-height:58px}
+/* The square is drawn whether or not there is an image in it, so a list does
+   not shuffle sideways as pictures arrive a second after the text. */
+.th{flex:none;display:block;width:34px;height:34px;border-radius:var(--r-sm);
+    background:var(--panel-2);overflow:hidden}
+/* Nothing to show is shown as nothing, not as a grey tile waiting for an image
+   that is never coming. It still holds its place. */
+.th:empty{background:none}
+.th img{width:100%;height:100%;object-fit:cover;display:block}
+.th.sm{width:26px;height:26px;border-radius:var(--r-sm)}
+.th.big{width:clamp(64px,9vw,96px);height:clamp(64px,9vw,96px);border-radius:var(--r)}
+
+/* ---- the picture bands ---------------------------------------------------
+   A 34px thumbnail beside a line of text is a bullet point. At 150px it is the
+   record, and the page stops being a spreadsheet with decorations. */
+.band{margin-top:32px}
+.band h3{display:flex;justify-content:space-between;align-items:baseline;
+         gap:16px;margin-bottom:16px}
+/* A fixed column count rather than auto-fill, because the number of tiles has
+   to match it. auto-fill fitted seven and the eighth sat alone on a second row
+   with six empty places beside it. */
+.tiles{list-style:none;display:grid;gap:16px;
+       grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (min-width:700px){.tiles{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media (min-width:1000px){.tiles{grid-template-columns:repeat(8,minmax(0,1fr))}}
+/* All of these are spans, so they need telling they are blocks: aspect-ratio,
+   a circular crop and an absolutely positioned rank all do nothing on an
+   inline box, which is why the tiles came out as overlapping rectangles. */
+.tiles li{cursor:pointer;display:block;min-width:0}
+.tiles .pic{display:block;position:relative;width:100%;aspect-ratio:1;
+            border-radius:var(--r);overflow:hidden;background:var(--panel-2);
+            transition:transform .18s ease}
+.tiles li:hover .pic{transform:translateY(-3px)}
+.tiles .pic img{width:100%;height:100%;object-fit:cover;display:block}
+/* An artist is a person and a record is an object, so the faces are round. */
+#top-a .pic{border-radius:var(--r-pill)}
+/* No badges: artists are circles and albums are squares, and a corner badge on
+   one and not the other made the same ranked list read as two different things
+   a hundred and fifty pixels apart. Both are already in order, left to right.
+   The span is not emitted at all rather than hidden, because a hidden element
+   still inherits the 16px body default and still counts as a size on the
+   page. */
+/* Left-aligned text under a circle leaves a wedge of white on each side that
+   reads as the name being out of step with the face above it. */
+.tiles li{text-align:center}
+.tiles .nm{display:block;margin-top:8px;font-size:var(--t4);color:var(--ink);
+           white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tiles .sub{display:block;font-size:var(--t3);color:var(--faint);min-height:1.05em;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tiles .v{display:block;margin-top:2px;font-family:var(--mono);
+          font-size:var(--t3);color:var(--dim)}
+/* Eight identical circles over a 9.9x range, with the same quantity drawn
+   proportionally in the list 56px below. The bar is the list's bar. */
+.tiles .tbar{display:block;height:4px;margin:6px auto 0;width:100%;
+             background:rgba(255,255,255,.07);border-radius:var(--r-bar);overflow:hidden}
+.tiles .tbar i{display:block;height:100%;background:var(--blue);border-radius:var(--r-bar)}
+.tiles li:hover .tbar i{background:var(--blue-hi)}
+/* An artist has no subtitle, so all eight reserved 13.6px for nothing. */
+#top-a .sub{display:none}
+@media (max-width:700px){
+  .tiles{grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:16px}
+}
+.th[hidden]{display:none}
+.col li .nm{font-size:var(--t4);color:var(--ink);flex:1;min-width:0;white-space:nowrap;
+            overflow:hidden;text-overflow:ellipsis}
+.col li .v{font-family:var(--mono);font-size:var(--t3);color:var(--dim);flex:none}
+/* Always drawn, even when empty. A row with an artist under it was taller than
+   one without, so a column of songs and a column of podcasts side by side went
+   out of step by a line every row and the whole block looked buckled. */
+/* A fixed height, not a minimum: an empty second line and a line with an
+   artist on it were different heights, so a column of songs and a column of
+   podcasts fell out of step by a few pixels on every row. */
+.col li .sub{font-size:var(--t3);color:var(--faint);
+             height:1.1rem;line-height:1.1rem;
+             white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Beside the picture rather than under the whole row, so it is a measure of
+   the thing next to it instead of a rule across the column. */
+.col li .bar{display:block;margin:1px 0 0}
+/* The unit, once, on the leader, so the column of bare numbers under it does
+   not need a label of its own. */
+.tiles .v em{font-style:normal;font-family:var(--ui);color:var(--faint)}
+.colmore{margin-top:12px}
+.th.av{display:flex;align-items:center;justify-content:center}
+.th.av i{font-style:normal;font-family:var(--ui);font-weight:600;
+         font-size:var(--t4);letter-spacing:.02em;color:rgba(255,255,255,.92)}
+.col li .sub{display:block}
+.col li:hover .bar i{background:var(--blue-hi)}
+/* The way into Seasons: one of its pictures, its name and a play button. */
+.sbanner{position:relative;display:flex;align-items:center;justify-content:space-between;
+         gap:16px;margin-top:24px;padding:24px 28px;min-height:128px;border-radius:var(--r);
+         overflow:hidden;text-decoration:none;color:#fff;
+         background:#111 center 42%/cover no-repeat}
+.sbanner[hidden]{display:none}
+.sbanner::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(to right,rgba(18,18,18,.9),rgba(18,18,18,.35) 70%,rgba(18,18,18,.15))}
+.sbanner>*{position:relative}
+.sbanner .w{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.sbanner b{font-size:clamp(1.35rem,3vw,2.1rem);font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.sbanner .w span{font-size:var(--t4);color:rgba(255,255,255,.8)}
+.sbanner .go{display:inline-flex;align-items:center;gap:8px;flex:none;background:var(--blue);
+             color:#000;font-weight:800;font-size:var(--t5);border-radius:var(--r-pill);
+             padding:12px 24px 12px 18px;transition:transform .15s}
+.sbanner:hover .go{transform:scale(1.05)}
+@media (max-width:700px){.sbanner{padding:18px 16px;min-height:104px}
+  .sbanner .go{padding:10px 18px 10px 14px}}
+/* A play button over a song's cover, and its smaller form inside a list. */
+.th{position:relative}
+.pl{cursor:pointer}
+.th .pl,.pl.dot{border:0;padding:0;border-radius:50%;
+  background:rgba(0,0,0,.66) center/45% no-repeat
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M7 4v16l14-8z'/%3E%3C/svg%3E")}
+.th .pl{position:absolute;inset:0;margin:auto;width:28px;height:28px}
+.pl.dot{flex:none;width:22px;height:22px;align-self:center;background-color:rgba(255,255,255,.12)}
+.th .pl:hover,.pl.dot:hover{transform:scale(1.12)}
+.th .pl.on,.pl.dot.on{background-color:var(--blue);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M6 4h4v16H6zM14 4h4v16h-4z'/%3E%3C/svg%3E")}
+.clipbtn{color:var(--ink)}
+.clipbtn.on{background:var(--blue);border-color:var(--blue);color:#000}
+.clipbtn[hidden],.kidtag[hidden]{display:none}
+.kidtag.bed{background:#c9b6ff;margin-left:6px;vertical-align:1px}
+/* An artist's records, as covers. */
+.dalbums{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;list-style:none}
+.dalbums li{min-width:0}
+.dalbums li.click{cursor:pointer}
+.dalbums .pic{display:block;aspect-ratio:1;border-radius:var(--r-sm);overflow:hidden;background:var(--panel)}
+.dalbums .pic img{width:100%;height:100%;object-fit:cover;display:block}
+.dalbums .nm{margin-top:8px;font-size:var(--t3);color:var(--ink);line-height:1.3;
+             display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dalbums li.click:hover .nm{color:var(--blue-ink)}
+.dalbums .v{font-family:var(--mono);font-size:var(--t1);color:var(--faint)}
+.detail h4.next{margin-top:28px}
+@media (max-width:700px){.dalbums{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.kidtag{font-size:var(--t0);font-weight:700;letter-spacing:.1em;color:var(--bg);
+        background:var(--faint);border-radius:var(--r-sm);padding:2px 4px;flex:none}
+
+/* align-items:start, or every card in a row grows to match the tallest. The
+   country list is long, which left the clock and the weekday chart sitting
+   above roughly 500px of empty card. */
+/* stretch, not start. A grid row is as tall as its tallest card, so a card of
+   two lines beside a card of eight left 874px of black hanging under it, and
+   there was about 1,600px of that in the lower half of the page. */
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));
+        gap:32px;margin-top:24px;align-items:stretch}
+h2.sec+.panels{margin-top:16px}
+/* Stretching works for the facet panels, whose lists grow to fill the height.
+   A finding card's content is fixed, so stretching only moved the void inside
+   it: two of the three cards in a row were carrying 187px and 314px of black
+   under the last line. Sizing them to their content moved that black out of
+   the cards but not off the page, because a grid row is still as tall as its
+   tallest card. Columns let the short cards pack instead. */
+/* Columns packed cards of different heights tightly, which was right when
+   there were six of them and they were all different shapes. Four cards that
+   are each a claim and ten rows want to be a grid: two by two, every card the
+   same height, nothing ragged. */
+.panels.finds{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+              gap:32px;align-items:stretch}
+.panels.finds>.panel{width:auto}
+@media(max-width:860px){.panels.finds{grid-template-columns:minmax(0,1fr)}}
+/* Each card is a subgrid of its row: heading, claim, list. A claim is as tall
+   as the tallest claim beside it and no taller, so the lists start on the same
+   line across a row without a reserved blank line under a short sentence. */
+/* Each card carries a 32px bottom margin to space the rows. Under the last
+   row that margin stacked on the next heading's own 64px, leaving 96. */
+.panels.finds{row-gap:0;margin-bottom:-32px}
+.panels.finds>.panel{display:grid;grid-row:span 3;grid-template-rows:subgrid;
+                     grid-template-columns:minmax(0,1fr);
+                     row-gap:0;margin-bottom:32px;align-content:start}
+.panel{display:flex;flex-direction:column}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+       box-shadow:0 2px 8px rgba(0,0,0,.3);padding:24px}
+.panel h3{font-size:var(--t5);font-weight:600;margin-bottom:2px}
+.panel h3{margin-bottom:16px}
+
+/* clock + week: same bar language as the main chart, smaller */
+/* The tallest bar fills the whole height, so the gap to the heading has to
+   be a margin: at 78px with none, Monday sat flush under "Day of the week". */
+.mini{display:flex;align-items:flex-end;gap:2px;height:108px;margin-top:14px}
+.mini .b{flex:1;background:var(--blue);border-radius:var(--r-bar) var(--r-bar) 0 0;min-height:1px;
+         position:relative;transition:background .12s}
+.mini .b:hover{background:var(--blue-hi)}
+.mini-x{display:flex;gap:2px;margin-top:4px}
+.mini-x span{flex:1;text-align:center;font-family:var(--mono);font-size:var(--t0);
+             color:var(--dim)}
+/* Seven bars across 1034px came out 146px wide and 78px tall, so they were
+   compared by area rather than by height and a 1.49x spread read as flat.
+   Capped and centred, the difference between Monday and Friday is visible. */
+.pair{display:grid;grid-template-columns:7fr 12fr;gap:40px;margin-top:24px}
+.pair .mini{gap:6px}
+.pair .mini-x{gap:6px}
+@media (max-width:700px){.pair{grid-template-columns:minmax(0,1fr);gap:0}}
+.mini.wk{justify-content:flex-start;gap:10px}
+.mini.wk .b{flex:0 1 48px}
+.wk .b{background:var(--blue)}
+.mini-x.wk{justify-content:flex-start;gap:10px}
+.mini-x.wk span{flex:0 1 48px}
+
+.stack{list-style:none}
+.stack li{display:flex;align-items:center;gap:8px;padding:4px 0}
+.stack .nm{font-size:var(--t4);color:var(--ink);flex:none;width:8rem}
+.stack .bar{flex:1}
+.stack .pc{font-family:var(--mono);font-size:var(--t3);color:var(--ink);flex:none;
+           width:3.4rem;text-align:right}
+#facets{grid-template-columns:minmax(0,1fr)}
+.stack.where .nm{width:10.5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stack .n{font-family:var(--mono);font-size:var(--t3);color:var(--dim);flex:none;
+          width:4.2rem;text-align:right}
+.trips li{display:block;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.045)}
+.trips li:last-child{border-bottom:0}
+.trips .r1{display:flex;align-items:baseline;gap:8px}
+.trips .flag{font-size:var(--t5);flex:none}
+.trips .cc{font-size:var(--t4);color:var(--ink);flex:1}
+.trips .n{font-family:var(--mono);font-size:var(--t3);color:var(--dim)}
+.trips .r2{font-family:var(--mono);font-size:var(--t1);color:var(--faint);margin-left:24px}
+
+/* ---- on this day ---------------------------------------------------------
+   The one thing here that is different tomorrow. Everything else on the page is
+   a total, and a total is the same on every visit, which is why there was no
+   reason to open this twice. */
+.today{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+       box-shadow:0 2px 8px rgba(0,0,0,.3);padding:16px 16px 16px;
+       margin-top:16px}
+.today .lbl{display:flex;align-items:baseline;gap:8px;margin-bottom:16px;
+            flex-wrap:wrap}
+.today .state{font-family:var(--mono);font-size:var(--t1);color:var(--faint)}
+.todaygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+           gap:8px}
+.tday{background:var(--bg);border:1px solid var(--line);border-radius:var(--r);
+      padding:8px 12px;cursor:pointer;transition:.15s;text-align:left;
+      font-family:var(--ui)}
+.tday:hover{border-color:var(--faint)}
+.tday .yr{font-family:var(--mono);font-size:var(--t1);color:var(--blue-ink);
+          letter-spacing:.06em}
+.tday .tn{font-size:var(--t4);color:var(--ink);margin-top:4px;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tday .an{font-size:var(--t3);color:var(--faint);
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tday .np{font-family:var(--mono);font-size:var(--t1);color:var(--dim);margin-top:4px}
+/* ---- the detail under a selection -----------------------------------------
+   Picking an artist used to give a chart and nothing else, which is less than
+   the leaderboard row you clicked to get there. */
+.detail{margin-top:16px;display:none}
+.detail.on{display:block}
+.detail h4{font-size:var(--t1);font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+           color:var(--faint);margin-bottom:8px}
+/* The column gap was 14.4px while rank-to-title inside a row was 19px, so a
+   count and the next column's rank read as one string. The gap between columns
+   has to be larger than any gap inside one. */
+/* 48px separated the columns and then took the width out of the titles, so
+   "We Are Never Ever Get…" truncated where it used to fit. 32px is still
+   larger than the 19px inside a row, which was the point. */
+/* 250px let three columns form at 1440, and three columns leave 278px for a
+   title, so "All Too Well (10 Minute Version) (Taylor's Version)" needed 457px
+   and lost half of itself. A song's name is the content here, not a label on
+   it. 420px gives two columns and 464px of title, which every one of the top
+   ten fits inside. */
+/* Ten, read down: 1-5 on the left and 6-10 on the right, one column on a phone. */
+.dtracks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+         grid-template-rows:repeat(5,auto);grid-auto-flow:column;
+         gap:4px 32px;list-style:none}
+.dtracks li{display:flex;align-items:baseline;gap:8px;padding:4px 0;
+            cursor:pointer;border-bottom:1px solid transparent}
+@media (max-width:700px){.dtracks{grid-template-columns:minmax(0,1fr);
+  grid-template-rows:none;grid-auto-flow:row}}
+.dtracks li:hover{border-bottom-color:var(--line)}
+.dtracks .n{font-family:var(--mono);font-size:var(--t1);color:var(--faint);
+            flex:none;width:1.4rem}
+.dtracks .t{font-size:var(--t4);color:var(--ink);flex:1;min-width:0;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dtracks .v{font-family:var(--mono);font-size:var(--t3);color:var(--dim);flex:none}
+.dfacts{display:flex;gap:8px 24px;flex-wrap:wrap;margin-top:16px}
+.dfacts div{font-size:var(--t4);color:var(--dim)}
+.dfacts b{color:var(--ink);font-weight:600}
+/* ---- findings -------------------------------------------------------------
+   A chart nobody can read is a chart nobody can send. Each of these leads with
+   the claim written out, and puts the evidence under it. */
+/* Peers, so they are the same height. align-items:start left one card two
+   lines tall beside two that carried charts. */
+#subjectfinds{align-items:stretch}
+.find .claim{font-size:var(--t5);color:var(--ink);line-height:1.5;margin-bottom:16px}
+.find .claim b{color:var(--blue-ink);font-weight:600;font-family:var(--mono)}
+.find ol,.find ul{list-style:none}
+/* Centred rather than on the baseline, because a 26px square sitting on a
+   text baseline makes the row taller than the square. */
+.find li{display:flex;align-items:center;gap:10px;padding:4px 0;min-height:35px;box-sizing:border-box;
+         border-bottom:1px solid rgba(255,255,255,.04)}
+/* An artist is a person, a track is a record. */
+.find .th.sm{width:26px;height:26px;border-radius:3px}
+.find li[data-k="a"]>.th.sm{border-radius:var(--r-pill)}
+.find li:last-child{border-bottom:0}
+.find li.click{cursor:pointer}
+.find li.click:hover .t{color:var(--blue-ink)}
+/* A second target inside a row has to look like one, or it is a trap. */
+.find .s.click{cursor:pointer;color:var(--blue-ink)}
+.find .s.click:hover{text-decoration:underline;text-underline-offset:2px}
+.find .t{flex:1;min-width:0;font-size:var(--t4);color:var(--ink);
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.find .s{font-size:var(--t3);color:var(--dim);flex:none;max-width:40%;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.find .v{font-family:var(--mono);font-size:var(--t3);color:var(--dim);flex:none}
+/* A date and a count after a long song title: the title gives way first, so
+   the three do not run into each other. */
+.find .days .s{margin-left:28px}
+.find .days .v{width:44px;text-align:right}
+/* Artist and song as two columns of a sheet: every song starts at the same
+   place, whatever the length of the artist beside it. */
+.find .pairs li{display:grid;align-items:center;column-gap:10px;
+                grid-template-columns:16px 22px minmax(0,5fr) minmax(0,8fr) 40px}
+.find .pairs .sg{display:flex;align-items:center;min-width:0}
+.find .pairs .s{max-width:none;flex:0 1 auto;min-width:0}
+.find .pairs .kidtag{flex:none}
+.find .pairs .v{text-align:right}
+/* On this day runs the full width, its years read down in columns. */
+.panels.finds>.panel.span{grid-column:1 / -1}
+.find .otd{columns:2;column-gap:40px}
+.find .otd li{break-inside:avoid}
+.find .otd .yr.click{cursor:pointer;color:var(--blue-ink)}
+.find .otd .yr.click:hover{text-decoration:underline;text-underline-offset:2px}
+.find .otd .yr{flex:none;width:34px;font-family:var(--mono);font-size:var(--t1);color:var(--dim)}
+.find .otd .v{width:68px;text-align:right}
+@media(max-width:860px){.find .otd{columns:1}}
+/* On a phone the artist goes under the title, which otherwise loses most of
+   itself to the artist and the count beside it. */
+@media(max-width:700px){
+  .find .otd li{display:grid;grid-template-columns:34px 26px minmax(0,1fr) auto;
+                column-gap:10px;row-gap:0;padding:6px 0}
+  .find .otd .yr,.find .otd .th,.find .otd .v{grid-row:1 / 3;align-self:center}
+  .find .otd .t{grid-column:3;grid-row:1}
+  .find .otd .s{grid-column:3;grid-row:2;max-width:none}
+}
+/* On a phone the two columns left "Catch th…" beside its tag, so the song
+   takes its own line under the artist. */
+@media (max-width:700px){
+  .find .pairs li{grid-template-columns:16px 22px minmax(0,1fr) 40px;row-gap:2px}
+  .find .pairs .sg{grid-column:3 / 5;grid-row:2}
+}
+#devices{margin-top:10px}
+#clipbtn{min-width:78px;justify-content:center}
+.titlerow .acts{display:contents}
+#bars.wide{justify-content:center}
+#bars.wide .mo{max-width:64px}
+/* Capped bars sit in the middle of the plot, so their labels are placed from
+   the same sums rather than spread across the full width. */
+.xax.wide span{--w:min(64px,calc((100% - (var(--n) - 1)*4px)/var(--n)));
+  left:calc(50% - (var(--n)*var(--w) + (var(--n) - 1)*4px)/2
+            + var(--i)*(var(--w) + 4px) + var(--w)/2) !important}
+.hero h1.long{font-size:22px;line-height:1.15;letter-spacing:-.01em}
+@media (max-width:760px){
+  /* Under 16px, an iPhone zooms the whole page when a field takes focus. */
+  .search input,.pick{font-size:16px}
+  /* The name always sits beside its picture; the badge and buttons start the
+     row below, rather than one of three arrangements depending on length. */
+  .hero:not(.home) .titlerow h1{flex:0 0 calc(100% - 80px);min-width:0;overflow-wrap:anywhere}
+  /* The two buttons take a row of their own, so "Open in Spotify" is not
+     left alone under the badge and "Play clip". */
+  .hero:not(.home) .titlerow .acts{display:flex;gap:12px;flex:0 0 100%}
+  .panel{padding:20px 16px}
+  .dtracks li{padding:8px 0}
+  .pl.dot{width:36px;height:36px}
+  .th.rw .pl{width:40px;height:40px}
+  .pair{gap:24px 0}
+  .find .days .v{width:36px}
+  .res li .t{flex:1 1 auto;max-width:none}
+  .res li .k{width:58px}
+}
+@media (max-width:380px){.sbanner b{font-size:19px}}
+#subjectfinds .spark{height:120px}
+@media (min-width:861px){#subjectfinds .spark{height:220px}}
+.find .seas .v{min-width:44px;text-align:right}
+@media (max-width:1100px){.find .days .s{margin-left:8px}}
+.find .v.gap{width:76px;text-align:right}
+.find .more{margin-top:12px;font-size:var(--t3);color:var(--faint)}
+/* Numbers start on the card's left edge, under its title, and the picture
+   tucks in after them: the room goes to the right-hand side of the row. */
+.find .rk{flex:none;width:16px;text-align:left;font-family:var(--mono);
+          font-size:var(--t1);color:var(--faint)}
+.find .rk+.th{margin-left:-4px}
+/* The city cards are a sheet: rank, place, years, span, hours, share, each in
+   its own column so the figures line up down the card. */
+.find .cities li{display:grid;grid-template-columns:16px minmax(0,1fr) 76px 26px 48px 44px;
+                 gap:10px;align-items:center}
+.find .cities .yr,.find .cities .ny{font-family:var(--mono);font-size:var(--t3);color:var(--dim)}
+.find .cities .ny,.find .cities .v{text-align:right}
+@media (max-width:420px){
+  .find .cities li{grid-template-columns:16px minmax(0,1fr) 72px 44px 40px;gap:8px}
+  .find .cities .ny{display:none}
+}
+/* One way of saying "there is more of this", used by all three sections. */
+/* Tucked at the left under a three-column block, it read as belonging to the
+   first column. It spans the block and sits under the middle of it. */
+.more-wrap{grid-column:1/-1;margin-top:8px}
+#boardmore{display:flex;justify-content:center;margin-top:24px}
+/* 280px under a 1084px block still read as a button belonging to one column.
+   Wide enough to sit under all three, short of the full width so it stays a
+   button rather than a bar. */
+#boardmore .more-btn{width:min(680px,100%);padding-top:13px;padding-bottom:13px}
+.more-btn{background:none;border:1px solid var(--line);border-radius:var(--r-pill);
+          color:var(--dim);font-family:var(--ui);font-size:var(--t4);
+          padding:8px 16px;cursor:pointer;transition:.15s;width:100%}
+.more-btn:hover{color:var(--ink);border-color:var(--faint)}
+@media (min-width:700px){.more-btn{width:auto}}
+/* An h4 with no size falls back to the 16px body default, which put it above
+   the panel's own heading. It is a label inside a card, not a heading. */
+.findsub{margin-top:24px;font-size:var(--t1);font-weight:600;color:var(--faint);
+         letter-spacing:.12em;text-transform:uppercase}
+.findsub:first-of-type{margin-top:0}
+.spark{display:flex;align-items:flex-end;gap:2px;height:64px;margin:4px 0 4px}
+.spark i{flex:1;background:var(--blue);border-radius:var(--r-bar) var(--r-bar) 0 0;min-height:2px;
+         display:block;transition:background .12s}
+.spark i:hover{background:var(--blue-hi)}
+/* The reference shape, behind and unfilled, so the comparison is visible
+   without competing with the subject it is there to frame. */
+.spark i{position:relative}
+.spark u{position:absolute;left:0;right:0;bottom:0;display:block;
+         border-top:1px solid var(--faint);background:none;pointer-events:none}
+.sparkx{display:flex;justify-content:space-between;font-family:var(--mono);
+        font-size:var(--t0);color:var(--dim)}
+.sparkx.each{gap:2px;margin-top:3px}
+.sparkx.each span{flex:1;text-align:center;white-space:nowrap;font-size:var(--t0);overflow:visible}
+/* This block was lost to a failed patch, so the single link on the homepage
+   rendered as the browser's default #0000EE: 1.81:1 on this ground, which is
+   invisible. */
+/* Selecting something used to leave the page half about that thing and half
+   still about the whole account, with the leaderboards and the findings sitting
+   underneath answering a question nobody had asked any more. A subject is its
+   own screen now, and Back returns you to the row you clicked. */
+main.subject .whole{display:none}
+main.day .hero:not(#dayview),main.day #subjectfinds{display:none}
+
+/* ---- a day's own page ---- */
+#dayview .dayhead{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+#dayview .dayhead h1{flex:1 1 auto}
+#dayview .daynav{display:flex;gap:8px;flex:none}
+#dayview .daynav{align-items:center}
+#dayview .daynav button.share{width:auto;height:auto;font-size:var(--t3)}
+#dayview .daynav button:not(.share){width:44px;height:44px;border-radius:var(--r-pill);background:none;
+  border:1px solid var(--line);color:var(--ink);font-size:20px;line-height:1;cursor:pointer}
+#dayview .daynav button:not(.share):hover{border-color:var(--dim)}
+#dayview .daynav button:disabled{opacity:.3;cursor:default}
+#dayview .detail{margin-top:28px}
+#dayview .dartists{list-style:none;display:flex;flex-wrap:wrap;gap:10px 24px}
+#dayview .dartists li{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:var(--t4);color:var(--ink)}
+#dayview .dartists li .v{font-family:var(--mono);font-size:var(--t3);color:var(--dim)}
+#dayview .dartists li:hover span.nm{color:var(--blue-ink)}
+#dayview .dartists .th{width:26px;height:26px;border-radius:var(--r-pill);overflow:hidden;flex:none;background:#2a2a2a}
+#dayview .dartists li[data-k="p"] .th{border-radius:3px}
+#dayview .dartists .th img{width:100%;height:100%;object-fit:cover;display:block}
+/* The map: the world as dots, a line from home, and where the day was. */
+.trip{margin-top:24px;border:1px solid var(--line);border-radius:var(--r);background:#161616;
+      padding:16px 16px 14px;overflow:hidden}
+.trip{max-width:720px}
+.trip svg{display:block;width:100%;height:auto}
+.trip .land{stroke:#3d3d3d;stroke-linecap:round;fill:none}
+.trip .arc{fill:none;stroke:var(--blue-ink);stroke-linecap:round;
+           stroke-dasharray:1;stroke-dashoffset:1;animation:tripdraw 1.4s .25s ease-out forwards}
+.trip .home{fill:#161616;stroke:#bbb}
+.trip .dest{fill:var(--blue-ink)}
+.trip .ring{fill:none;stroke:var(--blue-ink);transform-box:fill-box;transform-origin:center;
+            animation:trippulse 2s 1.5s ease-out infinite;opacity:0}
+@keyframes tripdraw{to{stroke-dashoffset:0}}
+@keyframes trippulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(4.5);opacity:0}}
+@media (prefers-reduced-motion:reduce){.trip .arc{animation:none;stroke-dashoffset:0}.trip .ring{animation:none}}
+.trip .where{margin-top:12px;display:flex;align-items:baseline;gap:6px 16px;flex-wrap:wrap}
+.trip .where b{font-size:var(--t6);font-weight:600;color:var(--ink)}
+.trip .where span{font-size:var(--t3);color:var(--dim)}
+.trip .where span b{font-family:var(--mono);font-size:inherit;color:var(--blue-ink);font-weight:600}
+
+/* ---- every day: one block of weeks per year ---- */
+#cal{padding:20px 16px;margin-top:20px}
+#cal[hidden]{display:none}
+.sbanner.cal{background:#161616}
+.sbanner.cal .strip{position:absolute;inset:10px;display:grid;grid-template-rows:repeat(7,1fr);
+  grid-auto-flow:column;grid-auto-columns:1fr;gap:2px}
+.sbanner.cal .strip i{border-radius:2px;background:#262626}
+.sbanner.cal .strip i.l1{background:#17472a}.sbanner.cal .strip i.l2{background:#1a7a3c}
+.sbanner.cal .strip i.l3{background:#1db954}.sbanner.cal .strip i.l4{background:#7df0a4}
+.sbanner.cal .strip i.a.l1{background:#5a3d12}.sbanner.cal .strip i.a.l2{background:#9a6614}
+.sbanner.cal .strip i.a.l3{background:#e09a1f}.sbanner.cal .strip i.a.l4{background:#ffd27a}
+.sbanner.cal::before{z-index:1;background:linear-gradient(to right,rgba(18,18,18,.94),rgba(18,18,18,.6) 60%,rgba(18,18,18,.3))}
+.sbanner.cal .w,.sbanner.cal .go{z-index:2}
+.sbanner.cal .go{padding:12px 24px}
+#cal .calyears{display:grid;grid-template-columns:minmax(0,1fr);gap:20px 40px}
+@media(min-width:900px){#cal .calyears{grid-template-columns:repeat(2,minmax(0,1fr))}#cal{padding:24px}}
+#cal .cy h4{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 6px;
+            font-size:var(--t3);font-weight:600;color:var(--ink)}
+#cal .cy h4 span{font-family:var(--mono);font-weight:400;font-size:var(--t1);color:var(--dim)}
+#cal .cg{display:grid;grid-template-rows:repeat(7,1fr);grid-auto-flow:column;
+         grid-auto-columns:minmax(0,1fr);gap:1px;aspect-ratio:53.6/7}
+#cal .cg.half{aspect-ratio:27/7;gap:2px}#cal .cg.half+.cg.half{margin-top:6px}
+#cal .cg i{border-radius:1px;background:#262626;min-width:0}
+#cal .cg i.x{background:none}
+#cal .cg i[data-d]{cursor:pointer}
+#cal .cg i.l1{background:#17472a}#cal .cg i.l2{background:#1a7a3c}
+#cal .cg i.l3{background:#1db954}#cal .cg i.l4{background:#7df0a4}
+#cal .cg i.a.l1{background:#5a3d12}#cal .cg i.a.l2{background:#9a6614}
+#cal .cg i.a.l3{background:#e09a1f}#cal .cg i.a.l4{background:#ffd27a}
+#cal .cg i[data-d]:hover{outline:1px solid #fff;outline-offset:0}
+#cal .callegend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:18px;
+                font-size:var(--t1);color:var(--dim)}
+#cal .callegend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+#cal .callegend .gap{width:14px}
+#cal .calread{min-height:1.4em;margin-bottom:12px;font-size:var(--t5);color:var(--ink)}
+#cal .calread b{color:var(--blue-ink);font-family:var(--mono);font-weight:600}
+
+/* ---- discoveries, and the decades ---- */
+.find .disc li{align-items:baseline;padding:7px 0}
+.find .disc .yr{flex:none;width:44px;font-family:var(--mono);font-size:var(--t1);color:var(--dim)}
+.find .disc .who{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.find .disc .who span.click{cursor:pointer;color:var(--blue-ink);white-space:nowrap}
+.find .disc .who span.click:hover{text-decoration:underline}
+.find .disc .who i{font-style:normal;color:var(--dim);margin:0 3px}
+@media(max-width:700px){.find .disc .who{white-space:normal;line-height:1.9}}
+.decwrap{display:flex;flex-direction:column;min-height:0}
+.decs{display:flex;align-items:stretch;gap:3px;flex:1;min-height:200px}
+.decs .col{flex:1;min-width:0;display:flex;flex-direction:column-reverse;border-radius:2px;overflow:hidden}
+.decs .col i{display:block;min-height:0}
+.decx{display:flex;gap:3px;margin-top:6px}
+.decx span{flex:1;min-width:0;text-align:center;font-family:var(--mono);font-size:var(--t0);color:var(--dim)}
+.deck{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:16px;font-size:var(--t1);color:var(--dim)}
+.deck span{display:inline-flex;align-items:center;gap:6px}
+.deck i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.backrow{margin-bottom:4px}
+.back{background:none;border:0;color:var(--dim);font-family:var(--ui);
+      font-size:var(--t4);padding:4px 0;cursor:pointer}
+.back:hover{color:var(--ink)}
+.back[hidden]{display:none}
+.titlerow{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+/* The address only counts as shareable if it is visible. This copies whatever
+   the page is currently showing, which is now always a real URL. */
+.share{background:none;border:1px solid var(--line);border-radius:var(--r-pill);
+       color:var(--dim);font-family:var(--ui);font-size:var(--t3);letter-spacing:.04em;
+       padding:4px 12px;cursor:pointer;transition:.15s;flex:none;line-height:1.5}
+.share:hover{color:var(--ink);border-color:var(--faint)}
+.share[hidden]{display:none}
+.share.done{background:var(--blue-solid);border-color:var(--blue-solid);color:#fff}
+a.share{text-decoration:none;display:inline-flex;align-items:center}
+a.share[hidden]{display:none}
+.note{margin-top:16px;font-size:var(--t4);color:var(--faint);line-height:1.6}
+.appear{display:inline-block;margin:0 16px 4px 0;font-size:var(--t4);
+        color:var(--dim)}
+.appear b{color:var(--ink);font-weight:600}
+.appear a{color:var(--blue-ink);font-weight:600;text-decoration:none}
+.appear a:hover{text-decoration:underline}
+.note b{color:var(--dim);font-weight:600}
+/* Room under it, and under the phone's home bar, so the last line is not
+   pressed against the bottom edge of the screen. */
+.foot{margin-top:64px;padding:16px 0 calc(32px + env(safe-area-inset-bottom));
+      border-top:1px solid var(--line);
+      font-size:var(--t3);color:var(--faint);line-height:1.7}
+.foot a{color:var(--dim)}
+
+/* Three columns at 1024 gave each title 136px, and 17 of the 60 fields on
+   screen were cut mid-word -- "The Twenty Minute VC (20VC): Venture Capital |
+   Startup Fundi..." showed 29% of itself. Two columns give ~300px. */
+@media (max-width:1180px){.cols{grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}}
+/* Above a phone the header is three columns with the search in the middle
+   one, so it stays put whether or not the Seasons link is showing. */
+@media (min-width:761px){
+  .hdr .row{display:grid;grid-template-columns:1fr minmax(0,420px) 1fr}
+  .hdr .brand{justify-self:start}
+  .hdr .nav{justify-self:end}
+  .hdr .search{max-width:none;width:100%}
+}
+/* Two list columns leave the third alone at half width beside an empty half.
+   It takes the full row and runs its own rows in two columns. */
+@media (min-width:761px) and (max-width:1180px){
+  .cols>.col:last-child:nth-child(odd){grid-column:1/-1}
+  .cols>.col:last-child:nth-child(odd) ol{columns:2;column-gap:32px}
+  .cols>.col:last-child:nth-child(odd) li{break-inside:avoid}
+}
+@media (max-width:760px){
+  .wrap{padding:0 16px}
+  .cols{grid-template-columns:1fr;gap:32px}
+  .plot{height:160px;margin-left:34px}.yax{left:-34px;width:28px}.xax{margin-left:34px}
+  .eg{font-size:var(--t3)}
+  .nav{gap:12px}.nav a{font-size:var(--t3)}
+  /* Brand, links, then the search across the full width beneath them. All
+     three on one line put "Seasons" above the box and "The Film" below it. */
+  .hdr .row{flex-wrap:wrap;height:auto;row-gap:10px}
+  .brand{order:1}
+  .nav{order:2;flex:1 1 auto}
+  .search{order:3;flex:0 0 100%;max-width:none}
+  body{padding-top:126px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="hdr"><div class="wrap"><div class="row">
+  <a class="brand" href="/">LISTENING</a>
+  <div class="search">
+    <svg class="lens" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+    <input id="s" placeholder="Song, artist, album or podcast" autocomplete="off" spellcheck="false">
+    <button class="x" id="sx" aria-label="Clear">&times;</button>
+    <ul class="res" id="res" role="listbox"></ul>
+  </div>
+  <nav class="nav">
+    <a href="/story.html">My Seasons of Music</a>
+  </nav>
+</div></div></header>
+
+<main class="wrap">
+
+
+  <section class="hero">
+    <div class="backrow">
+      <button class="back" id="back" type="button" hidden>&larr; Back</button>
+    </div>
+    <p class="by" id="by"></p>
+    <div class="titlerow">
+      <span class="th big" id="heroart"></span>
+      <h1 id="title">Everything I've ever listened to</h1>
+      <span class="rankbadge" id="rank" hidden></span>
+      <span class="kidtag bed" id="bedtag" hidden>BEDTIME</span>
+      <span class="acts">
+        <button class="share clipbtn pl" id="clipbtn" type="button" hidden>Play clip</button>
+        <a class="share spot" id="spot" target="_blank" rel="noopener" hidden>Open in Spotify &#8599;</a>
+      </span>
+    </div>
+    <div class="totals" id="totals"></div>
+
+    <div class="chart">
+      <div class="cap">
+        <span class="eyebrow" id="chartlbl">Plays per month</span>
+        <!-- The two controls that belong to this chart sit on it, rather than
+             in a bank above the page where they read as filters on everything
+             and push the thing they control below the fold. -->
+        <span class="capctl">
+          <select class="pick" id="grain" aria-label="Monthly or yearly"></select>
+          <select class="pick" id="units" aria-label="Measured in"></select>
+          <select class="pick" id="lens" aria-label="Whose listening"></select>
+        </span>
+      </div>
+      <div class="plot" id="plot">
+        <div class="yax" id="yax"></div>
+        <div class="grid" id="grid"></div>
+        <div class="yrs" id="yrs"></div>
+        <div class="bars" id="bars"></div>
+        <div class="tip" id="tip"></div>
+      </div>
+      <div class="xax" id="xax"></div>
+      <p class="hint" id="charthint"></p>
+      <div class="detail" id="detail"></div>
+      <p class="note" id="note"></p>
+    </div>
+  </section>
+
+  <section class="hero" id="dayview" hidden></section>
+  <div class="panel" id="cal" hidden></div>
+
+  <p class="dberr" id="dberr" hidden></p>
+
+  <div class="panels finds" id="subjectfinds" hidden></div>
+
+  <!-- The way into Seasons, which was only a small link in the header. -->
+  <a class="sbanner whole" href="/story.html">
+    <span class="w"><b>My Seasons of Music</b><span id="sbsub"></span></span>
+    <span class="go"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Play</span>
+  </a>
+
+  <div class="controls whole" id="boardctl">
+    <span class="ctlpair"><span class="ctllbl">When</span>
+      <select class="pick" id="years" aria-label="Year"></select></span>
+    <span class="ctlpair"><span class="ctllbl">What</span>
+      <select class="pick" id="kinds" aria-label="Kind"></select></span>
+  </div>
+  <!-- Three forms, not five identical columns. The two things that have
+       pictures are shown as pictures, at a size where a face is a face; the
+       three that do not stay as lists underneath. That is the hierarchy. -->
+  <section class="band whole" id="band-a">
+    <h3><span class="eyebrow">Most played artists</span></h3>
+    <ol class="tiles" id="top-a"></ol>
+  </section>
+
+  <section class="band whole" id="band-l">
+    <h3><span class="eyebrow">Most played albums</span></h3>
+    <ol class="tiles" id="top-l"></ol>
+  </section>
+
+  <div class="cols whole">
+    <div class="col"><h3><span class="eyebrow">Most played songs</span><span class="eyebrow unit u">plays</span></h3><ol id="top-t"></ol></div>
+    <div class="col"><h3><span class="eyebrow">Most played podcasts</span><span class="eyebrow unit u">plays</span></h3><ol id="top-p"></ol></div>
+    <div class="col"><h3><span class="eyebrow">Most played people</span><span class="eyebrow unit u">episodes</span></h3><ol id="top-g"></ol></div>
+  </div>
+
+
+
+  <div id="chartslot" class="whole"></div>
+
+  <a class="sbanner cal whole" id="calban" href="#/d">
+    <span class="strip" id="calstrip"></span>
+    <span class="w"><b>Every day</b><span id="calsub"></span></span>
+    <span class="go">Open</span>
+  </a>
+
+  <h2 class="sec whole">What the data says</h2>
+  <div class="panels finds whole" id="finds"></div>
+
+
+
+  <h2 class="sec whole">When and how</h2>
+  <div class="panels whole" id="facets">
+    <!-- The hour, the weekday and the device are three readings of the same
+         question -- when and how this gets listened to -- so they are one
+         card rather than three that have to be read together across a grid. -->
+    <div class="panel">
+      <h4 class="findsub">Hour of the day</h4>
+      <div class="mini" id="clock"></div>
+      <div class="mini-x" id="clockx"></div>
+      <!-- Side by side on a wide screen, one above the other on a phone. -->
+      <div class="pair">
+        <div>
+          <h4 class="findsub">Day of the week</h4>
+          <div class="mini" id="week"></div>
+          <div class="mini-x" id="weekx"></div>
+        </div>
+        <div>
+          <h4 class="findsub">Month of the year</h4>
+          <div class="mini" id="month"></div>
+          <div class="mini-x" id="monthx"></div>
+        </div>
+      </div>
+      <h4 class="findsub">What I listened on</h4>
+      <ul class="stack" id="devices"></ul>
+    </div>
+  </div>
+
+  <p class="foot" id="foot"></p>
+</main>
+
+<script id="payload" type="application/json">__DATA__</script>
+<script>
+(function(){
+"use strict";
+const D = JSON.parse(document.getElementById("payload").textContent);
+const M = D.months, NM = M.length, YRS = D.years, Y0 = D.y0;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g,
+  ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+const fmt = n => n.toLocaleString("en-US");
+const fmt1 = n => n < 10 ? n.toFixed(1) : fmt(Math.round(n));
+
+/* ---- rows -------------------------------------------------------------- */
+// [kind, name, sub, plays, minutes, "yIdx:n|...", first, last, skipPct,
+//  kidPlays, kidMins, ambPlays, ambMins]
+//
+// Each row carries its own split between the three voices on the account. It
+// used to carry a single flag meaning "the children played this at least once",
+// and the page hid any row that had it -- which removed Natalie Merchant, 1,397
+// of his plays against 21 of theirs, along with 46 other artists.
+const ROWS = D.rows.map(r => {
+  const years = new Array(YRS.length).fill(0);
+  if (r[5]) for (const p of r[5].split("|")) {
+    const [i, n] = p.split(":"); years[+i] = +n;
+  }
+  const plays = r[3], mins = r[4];
+  const kidPlays = r[9] || 0, kidMins = r[10] || 0;
+  const ambPlays = r[11] || 0, ambMins = r[12] || 0;
+  return {kind:r[0], name:r[1], sub:r[2], plays, mins, years,
+          first:r[6], last:r[7], skip:r[8],
+          kidPlays, kidMins, ambPlays, ambMins,
+          minePlays: plays - kidPlays - ambPlays,
+          mineMins: Math.max(0, mins - kidMins - ambMins),
+          hay:(r[1] + " " + (r[2]||"")).toLowerCase()};
+});
+
+// Bedtime songs (bedtime.txt): counted as his, and tagged so a list of his
+// most-played songs is not read as three lullabies he chose for himself.
+const BED = new Set((D.bedtime || []).map(([a, t]) => t + "\u001f" + a));
+const isBed = (name, artist) => BED.has(name + "\u001f" + (artist || ""));
+// What the tag means, said once on the song's own page.
+// (bedtime.txt: "Artist :: Track :: an optional sentence about it".)
+const BEDNOTE = {};
+for (const [a, t, note] of D.bedtime || []) if (note) BEDNOTE[t + "\u001f" + a] = note;
+const BEDLBL = D.bedLabel || "BEDTIME";
+// Where "away" is measured from (config.json), as the page words it.
+const HOMELBL = esc((D.home && D.home.label) || "home");
+const bedTag = (name, artist) => isBed(name, artist) ? `<span class="kidtag bed">${BEDLBL}</span>` : "";
+// A podcast's listing name can run to a subtitle and three keywords. In a list
+// it is shown as the part before the colon or bar; its own page has it in full.
+const shortShow = n => n.length <= 30 ? n
+  : (n.split(/\s*[:|]\s+/)[0].replace(/\s*\([^)]*\)\s*$/, "") || n);
+
+/* ---- state ------------------------------------------------------------- */
+let lens = "mine";      // mine | kids | all -- his own listening is the default,
+                        // because the front page was otherwise a Raffi chart
+let unit = "plays";     // plays | hours
+let kind = "";          // "" | t | a | p | g
+let sel  = null;        // selected row, or null for the whole history
+let boardYear = null;
+let dayView = null;        // "2019-10-05" while a single day's page is open
+const ALLDAYS = "all";
+let calFrom = 0;           // how far down the calendar was when a day was opened
+let monthly = null;     // per-entity monthly series, once the database is up
+
+// What this row is worth under the current lens, rather than whether it is
+// allowed to appear at all. A row shows when the lens counts any of it.
+const lensPlays = r => lens === "all" ? r.plays
+                     : lens === "kids" ? r.kidPlays : r.minePlays;
+const lensMins  = r => lens === "all" ? r.mins
+                     : lens === "kids" ? r.kidMins : r.mineMins;
+const visible = r => lensPlays(r) > 0;
+
+/* ---- the aggregate series --------------------------------------------- */
+function baseSeries(){
+  // Hours now ship the children as their own series. They used to be derived
+  // as all minus mine, which quietly handed them the overnight speaker: the
+  // same lens read 2,669 hours as plays and 3,108 as hours.
+  return (unit === "hours" ? D.hours : D.series)[lens === "all" ? "all" : lens];
+}
+
+// A selected entity only carries yearly counts in the inline payload, so its
+// monthly shape arrives from the database a moment later. Until then the year
+// is spread flat across its months -- shown as a lighter bar so a flat stretch
+// never reads as a real measurement.
+let approx = false;
+function series(){
+  if (!sel) { approx = false; return baseSeries(); }
+  if (monthly) { approx = false; return monthly; }
+  approx = true;
+  const out = new Array(NM).fill(0);
+  const per = unit === "hours" ? sel.mins / 60 / Math.max(1, sel.plays) : 1;
+  YRS.forEach((y, yi) => {
+    const idx = [];
+    M.forEach((m, i) => { if (+m.slice(0,4) === y) idx.push(i); });
+    const v = sel.years[yi] * per / Math.max(1, idx.length);
+    idx.forEach(i => out[i] = +v.toFixed(2));
+  });
+  return out;
+}
+
+/* ---- chart ------------------------------------------------------------- */
+// There are four gridlines, so the top of the scale is four steps. Picking the
+// step and multiplying beats picking the top directly: every label stays a
+// round number, and the ladder can be fine without producing 3,250 as a
+// ceiling. The old one offered 1, 2, 2.5 and 5 times a power of ten, so a peak
+// of 3,260 was drawn against 5,000 and a third of the plot was empty.
+// 4.0k reads as a measurement to one decimal. 4k is the number.
+function axisLabel(n){
+  if (n >= 1000) {
+    const k = n / 1000;
+    return (Number.isInteger(k) ? k : k.toFixed(1)) + "k";
+  }
+  return unit === "hours" ? String(Math.round(n)) : fmt(Math.round(n));
+}
+
+function niceMax(v){
+  if (v <= 0) return 1;
+  const step = v / 4;
+  const p = Math.pow(10, Math.floor(Math.log10(step)));
+  for (const s of [1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10])
+    if (step <= s * p) return 4 * s * p;
+  return 40 * p;
+}
+const bars = $("bars"), tip = $("tip");
+let cells = [];
+// 182 bars in 321px of phone is 0.77px per bar with a 1px gap between them.
+// That is texture, not a shape, and the shape is the point. Under 700px the
+// chart bins to one bar a year: sixteen bars at about 18px, which is a shape.
+// Chosen, with a sensible default rather than a fixed one: 182 bars is a shape
+// on a laptop and 0.77px a bar on a phone, so a phone opens on years. Either
+// can be picked at either size.
+let grain = "";
+// A person is parsed out of episode titles, so there are no months for one.
+// The chart drew each year as twelve identical abutting bars and then printed
+// a caption saying months were not recorded, which is the chart stating
+// something and the caption taking it back.
+// A subject's months do not exist until the database lands. Drawing a year
+// spread flat across twelve months and apologising for it in a caption meant
+// the chart changed grain, colour and scale a beat after you arrived. A
+// subject opens on years, which is true the whole time; months are opt-in and
+// only offered once they are real.
+const byYear = () =>
+  (sel && sel.kind === "g") ? true
+  : grain ? grain === "year"
+  : sel ? true
+  : innerWidth < 700;
+// A record released in 2020 drew its plot across the account's whole sixteen
+// years, so 2011 to 2019 was nine years of nothing and 55% of the chart was
+// empty. A subject's chart starts where the subject does, with a year of air
+// either side so the first bar is not against the axis.
+function window_(){
+  if (!sel || !sel.first || !sel.last) return {from: 0, to: M.length - 1};
+  const a = M.indexOf(sel.first.slice(0, 7));
+  const b = M.indexOf(sel.last.slice(0, 7));
+  if (a < 0 || b < 0) return {from: 0, to: M.length - 1};
+  return {from: Math.max(0, a - 3), to: Math.min(M.length - 1, b + 3)};
+}
+
+function bins(){
+  const w = window_();
+  if (!byYear()) return M.slice(w.from, w.to + 1);
+  const y0 = +M[w.from].slice(0, 4), y1 = +M[w.to].slice(0, 4);
+  return YRS.filter(y => y >= y0 && y <= y1).map(String);
+}
+
+// Sums the monthly series into whatever the current bins are, over the window.
+function binned(v){
+  const w = window_();
+  const cut = v.slice(w.from, w.to + 1);
+  if (!byYear()) return cut;
+  const labels = bins();
+  const out = new Array(labels.length).fill(0);
+  M.slice(w.from, w.to + 1).forEach((m, i) => {
+    const yi = labels.indexOf(m.slice(0, 4));
+    if (yi >= 0) out[yi] += cut[i];
+  });
+  return out.map(n => +n.toFixed(2));
+}
+
+function buildBars(){
+  bars.innerHTML = "";
+  bars.classList.toggle("wide", bins().length <= 30);
+  cells = bins().map((m, i) => {
+    const d = document.createElement("div");
+    d.className = "mo"; d.dataset.i = i;
+    d.innerHTML = "<i></i>";
+    bars.appendChild(d);
+    return d;
+  });
+  // Year rules and labels, drawn once: 182 bars need the years to stay countable.
+  const yrs = $("yrs"), xax = $("xax");
+  yrs.innerHTML = ""; xax.innerHTML = "";
+  xax.classList.toggle("wide", bins().length <= 30);
+  xax.classList.toggle("go", !sel);
+  xax.style.setProperty("--n", bins().length);
+  // The axis is built from the bins, not from the whole history, or the labels
+  // sit where the bars used to be rather than where they are.
+  const slots = bins();
+  const N = slots.length;
+  const years = [...new Set(slots.map(v => byYear() ? v : v.slice(0, 4)))];
+  // Every other label when there is no room for all of them.
+  const every = N <= 24 ? 1 : Math.ceil(years.length / (innerWidth < 700 ? 8 : 16));
+  years.forEach((ys, n) => {
+    const idx = slots.findIndex(v => (byYear() ? v : v.slice(0, 4)) === ys);
+    if (idx < 0) return;
+    const left = (idx / N) * 100;
+    if (idx && !byYear())
+      yrs.insertAdjacentHTML("beforeend", `<i style="left:${left}%"></i>`);
+    if (n % every) return;
+    const width = slots.filter(v => (byYear() ? v : v.slice(0, 4)) === ys).length;
+    xax.insertAdjacentHTML("beforeend",
+      `<span data-y="${ys}" style="--i:${idx + (width - 1) / 2};left:${left + (width/N*100)/2}%">` +
+      `'${String(ys).slice(2)}</span>`);
+  });
+}
+function paintChart(){
+  const v = binned(series());
+  const top = niceMax(Math.max(...v, 1));
+  cells.forEach((c, i) => {
+    c.firstChild.style.height = ((v[i] || 0) / top * 100).toFixed(2) + "%";
+    // Grey means "this is a guess until the database lands". A yearly chart is
+    // not a guess, so it is drawn in the same blue as everything else.
+    c.classList.toggle("kid", approx && !byYear());
+  });
+  const yax = $("yax"), grid = $("grid");
+  yax.innerHTML = ""; grid.innerHTML = "";
+  // Four equal divisions of a top of 3 are 0.75 apart, which rounds to
+  // "0, 1, 2, 2, 3". A small chart gets one line per whole number instead.
+  const whole = top <= 8 && Number.isInteger(top);
+  const stepN = !whole ? 0 : top <= 4 ? 1 : 2;
+  const fracs = whole
+    ? Array.from({length: Math.floor(top / stepN) + 1}, (_, i) => i * stepN / top)
+    : [0, .25, .5, .75, 1];
+  fracs.forEach(f => {
+    const pct = (1 - f) * 100;
+    yax.insertAdjacentHTML("beforeend",
+      `<span style="top:${pct}%">${axisLabel(top * f)}</span>`);
+    grid.insertAdjacentHTML("beforeend",
+      `<i class="${f===0?"base":""}" style="top:${pct}%"></i>`);
+  });
+  // A person is parsed out of episode titles rather than stored as a field, so
+  // there is no monthly query to run for one. The chart used to sit in the
+  // loading state for them permanently, under a hint saying detail was coming.
+  const noMonthly = !!sel && sel.kind === "g";
+  // "(yearly, spread)" means the monthly shape has not arrived and a year has
+  // been spread flat across its months. When the chart IS by year that is not
+  // what is happening, and the label contradicted itself.
+  $("chartlbl").textContent =
+    (unit === "hours" ? "Hours" : "Plays") + (byYear() ? " per year" : " per month");
+  // Only says something when the chart is not what it appears to be. "182
+  // months, hover for any one of them" described the control and the obvious.
+  // With the control gone there is no unanswered question to answer.
+  $("charthint").textContent = "";
+}
+// pointermove rather than mousemove: the chart was inert on the iPad, which is
+// where most of this is read. touch-action keeps the page scrollable through it.
+bars.addEventListener("pointermove", e => {
+  const c = e.target.closest(".mo"); if (!c) return;
+  const i = +c.dataset.i, v = binned(series())[i];
+  const slots = bins();
+  let when;
+  if (byYear()) when = slots[i];
+  else {
+    const [y, mo] = String(slots[i]).split("-");
+    when = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+mo-1]
+         + " " + y;
+  }
+  tip.innerHTML = `${when} &nbsp; <b>${unit === "hours" ? fmt1(v)+"h" : fmt(Math.round(v))}</b>`;
+  const r = bars.getBoundingClientRect();
+  tip.style.left = Math.min(Math.max(e.clientX - r.left, 40), r.width - 40) + "px";
+  tip.style.transform = "translate(-50%,-8px)";
+  tip.style.bottom = (r.height - (e.clientY - r.top)) + "px";
+  tip.style.opacity = 1;
+});
+bars.addEventListener("pointerleave", () => tip.style.opacity = 0);
+bars.addEventListener("pointercancel", () => tip.style.opacity = 0);
+
+/* ---- hero -------------------------------------------------------------- */
+function heroStats(){
+  if (sel) return {plays: lensPlays(sel), hours: lensMins(sel)/60,
+                   first: sel.first, last: sel.last};
+  const key = lens === "all" ? "all" : lens;
+  return {plays: D.series[key].reduce((a,b)=>a+b,0),
+          hours: D.hours[key].reduce((a,b)=>a+b,0),
+          first: D.meta.first, last: D.meta.last};
+}
+// On the homepage the chart is sixteen years of one account and says little
+// you cannot get from the two figures above it, while taking the best part of
+// the first screen. It moves below the findings there. With something selected
+// it is the evidence for the sentence, so it stays where it is.
+function placeChart(){
+  const chart = document.querySelector(".chart");
+  const slot = document.getElementById("chartslot");
+  const hero = document.querySelector(".hero");
+  if (!chart || !slot || !hero) return;
+  const wantedParent = sel ? hero : slot;
+  if (chart.parentElement !== wantedParent) wantedParent.appendChild(chart);
+}
+
+// Arriving on /t/Thirteen/Big+Star sets the selection without going through
+// select(), so the page has to decide what it is here, where every path lands.
+function subjectChrome(){
+  document.querySelector("main").classList.toggle("subject", !!sel || !!dayView);
+  document.querySelector("main").classList.toggle("day", !!dayView);
+  $("dayview").hidden = !dayView;
+  $("cal").hidden = dayView !== ALLDAYS;
+  $("back").hidden = !sel;
+  // The home page has the Seasons banner, so the link in the header would say
+  // it twice. Everywhere else the banner is hidden and the link is the way in.
+  document.querySelector(".nav").style.display = (sel || dayView) && D.seasons ? "" : "none";
+  fitHeader();
+}
+// On a phone the header is one row on the home page and two elsewhere, so the
+// page starts below whatever height it actually is.
+function fitHeader(){
+  document.body.style.paddingTop = document.querySelector(".hdr").offsetHeight + "px";
+}
+addEventListener("resize", fitHeader);
+
+function paintHero(){
+  subjectChrome();
+  paintDay();
+  const st = heroStats();
+  const KINDNAME = {t:"Song", a:"Artist", l:"Album", p:"Podcast", g:"Person", e:"Episode"};
+  // His page, in his voice. "Everything you've played" addressed him as a tool
+  // would; the thing he sends people is a statement about himself.
+  // A 48px headline over a row of 40px figures was most of a phone screen
+  // spent saying what the site is. One line, with the figures in the sentence.
+  const whose = lens === "kids" ? "of the kids' listening"
+              : lens === "all" ? "of listening on this account"
+              : "on Spotify";
+  document.querySelector(".hero").classList.toggle("home", !sel);
+  // A forty-character name at full size is four lines on a phone.
+  $("title").classList.toggle("long", !!sel && sel.name.length > 40);
+  if (sel) $("title").textContent = sel.name;
+  else $("title").innerHTML = `<b>${fmt(Math.round(st.hours))}</b> hours ` +
+                              `and <b>${fmt(st.plays)}</b> plays ${whose}`;
+  // Only when there is something to name. The three lens captions that used to
+  // sit here told you what the control next to them does, which is the control
+  // failing rather than a caption succeeding.
+  // A person's subtitle is "Regular · The Rewatchables +2", which above a name
+  // makes an eyebrow wider than its subject. The kind alone is enough there;
+  // where they appear is already a line under the chart.
+  // Where it ranks among everything of its kind, for whoever the lens is on.
+  // Shown for the top hundred; past that a rank stops meaning much.
+  {
+    const RANKNAME = {t:"song", a:"artist", l:"album", p:"podcast", g:"person", e:"episode"};
+    let rk = 0;
+    if (sel && lensPlays(sel) > 0) {
+      const mine = lensPlays(sel);
+      rk = 1 + ROWS.filter(r => r.kind === sel.kind && lensPlays(r) > mine).length;
+    }
+    $("rank").hidden = !(rk && rk <= 100);
+    if (rk) $("rank").textContent = `#${rk} most-played ${RANKNAME[sel.kind]}`;
+  }
+  if (document.getElementById("boardmore")) paintBoardMore();
+  $("by").textContent = sel
+    ? (KINDNAME[sel.kind] +
+       (sel.sub && sel.kind !== "g" ? " · " + sel.sub : ""))
+    : "";
+  // Two. The span of years is already the x-axis of the chart directly below,
+  // and it was taking a third of the headline to repeat it.
+  // A sentence restating 382 next to a 382 set in 32px was the same fact
+  // twice, and the second time smaller. The facts worth having are figures.
+  const one = (n, s, p) => n === 1 ? s : p;
+  const hrs = Math.round(st.hours);
+  const fig = [[fmt(st.plays), one(st.plays, "play", "plays")],
+               st.hours < 1 ? [fmt(Math.round(st.hours * 60)), "min"]
+                            : [fmt(hrs), one(hrs, "hour", "hours")]];
+  if (sel) {
+    const f = factsFor && factsFor.key === keyOf(sel) ? factsFor : null;
+    // Inserting this cell when the database landed pushed every cell to its
+    // right along and the whole page down. It is drawn now and filled later.
+    if (f && f.days) fig.push([fmt(f.days), one(f.days, "day", "different days")]);
+    else if (!ready) fig.push(["&ndash;", "different days", false, true]);
+    const all = sel.years.reduce((a, b) => a + b, 0);
+    const pk = sel.years.indexOf(Math.max(...sel.years));
+    const share = all ? Math.round(100 * sel.years[pk] / all) : 0;
+    if (share >= 25 && sel.years.filter(Boolean).length > 1)
+      fig.push([share + "%", "of it in " + YRS[pk]]);
+  }
+  // The date is not a quantity beside the others, so it is a line under them
+  // rather than a fifth figure in the row.
+  $("totals").innerHTML = fig.map(([v, lab, small, waiting]) =>
+    `<div><b class="${small ? "sm" : ""}${waiting ? " wait" : ""}">${v}</b>` +
+    `<span>${lab}</span></div>`).join("") +
+    (sel ? `<p class="lastp">` +
+       (sel.first && sel.first !== sel.last
+         ? `First played: <b>${readDay(sel.first)}</b> &nbsp;&middot;&nbsp; ` : "") +
+       `Last played: <b>${readDay(sel.last)}</b></p>` +
+       (sel.kind === "t" && BEDNOTE[sel.name + "\u001f" + (sel.sub || "")]
+         ? `<p class="lastp bednote">${esc(BEDNOTE[sel.name + "\u001f" + (sel.sub || "")])}</p>` : "") : "");
+  {
+    const song = !!sel && sel.kind === "t";
+    $("bedtag").hidden = !(song && isBed(sel.name, sel.sub));
+    $("bedtag").textContent = BEDLBL;
+    const cb = $("clipbtn");
+    cb.hidden = !(song && ready);
+    if (song) { cb.dataset.pn = sel.name; cb.dataset.ps = sel.sub || ""; }
+    markClips();
+  }
+  // No seasons written yet (seasons.json), no way in to them.
+  { const sb = document.querySelector(".sbanner:not(.cal)");
+    sb.hidden = !D.seasons;
+    if (D.seasonArt) sb.style.backgroundImage = `url("${D.seasonArt}")`; }
+  $("sbsub").textContent = `${YRS[0]}\u2013${String(YRS[YRS.length - 1]).slice(2)} in ${(D.seasons || []).length || 12} seasons`;
+
+  // Every track carries its Spotify id, so a song opens exactly. Artists,
+  // albums and shows have no id in the export, so they open a Spotify search
+  // filtered to the right type, which lands on the right thing.
+  const spot = $("spot");
+  if (!sel) spot.hidden = true;
+  else {
+    const q = encodeURIComponent(sel.name + (sel.sub ? " " + sel.sub : ""));
+    const f = factsFor && factsFor.key === keyOf(sel) ? factsFor : null;
+    const href =
+      sel.kind === "t" && f && f.uri ? "https://open.spotify.com/track/" + f.uri
+      : sel.kind === "a" ? `https://open.spotify.com/search/${encodeURIComponent(sel.name)}/artists`
+      : sel.kind === "l" ? `https://open.spotify.com/search/${q}/albums`
+      : sel.kind === "p" ? `https://open.spotify.com/search/${encodeURIComponent(sel.name)}/podcasts`
+      : sel.kind === "e" ? `https://open.spotify.com/search/${q}/episodes`
+      : null;
+    spot.hidden = !href;
+    if (href) spot.href = href;
+  }
+
+  // The record itself, at the size a record deserves, and nothing at all on
+  // the homepage, where the subject is sixteen years rather than a thing.
+  const ha = $("heroart"), hurl = artFor(sel);
+  ha.innerHTML = hurl ? `<img src="${esc(hurl)}" alt="" decoding="async">` : "";
+  // Pictures come out of the database. Hiding the box until one arrived meant
+  // the name sat left, then jumped right under a picture that appeared beneath
+  // it. The box is held at its final size until we know there is nothing to
+  // put in it, and :empty keeps it invisible while it waits.
+  ha.hidden = !sel || (ready && !hurl);
+
+  placeChart();
+  paintDetail();
+  $("note").innerHTML = sel ? whereTheyAppear(sel) : "";
+}
+function pct(a, b){
+  const s = a.reduce((x,y)=>x+y,0), t = b.reduce((x,y)=>x+y,0);
+  return (100 * s / t).toFixed(0);
+}
+// Both figures used to be wrong in the same direction. The share of the whole
+// account was the entire children's bucket read as though it were one artist,
+// and the share of 2018 was a hardcoded 70. Computed here from the row itself.
+// The show-by-show breakdown for a person was computed at build time and then
+// never read by anything. Selecting someone in Top People is the one place it
+// answers the obvious next question.
+function whereTheyAppear(r){
+  if (r.kind !== "g" || !D.graph) return "";
+  const rows = D.graph[r.name];
+  if (!rows || !rows.length) return "";
+  const has = show => ROWS.some(x => x.kind === "p" && x.name === show);
+  return rows.map(([show, n, role]) =>
+    `<span class="appear">${has(show)
+       ? `<a href="#/p/${slug(show)}" data-show="${esc(show)}">${esc(show)}</a>`
+       : `<b>${esc(show)}</b>`} ${esc(role)} · ` +
+    `${fmt(n)} ${n === 1 ? "episode" : "episodes"}</span>`).join("");
+}
+// An artist's own songs, ranked, plus the few facts that are only interesting
+// once you are looking at one artist rather than all of them.
+function paintDetail(){
+  const el = $("detail");
+  if (!sel || !["a", "p", "l"].includes(sel.kind)) {
+    el.className = "detail"; el.innerHTML = ""; return;
+  }
+  const mine = sel.kind === "a"
+    ? ROWS.filter(r => r.kind === "t" && (r.sub || "") === sel.name && visible(r))
+          .sort((a, b) => lensPlays(b) - lensPlays(a))
+    : [];
+  // The catalogue comes from the database when it is there, because the inlined
+  // rows leave out anything under three plays: Big Star read as 2 songs and 99%
+  // one song, against 6 songs and 93% in the file the charts are drawn from.
+  const f = factsFor && factsFor.key === keyOf(sel) ? factsFor : null;
+  const total = f && f.cat ? f.cat.total : mine.reduce((a, r) => a + lensPlays(r), 0);
+  const songCount = f && f.cat ? f.cat.songs : mine.length;
+  // Listing from the inlined rows showed 2 of Big Star's 24 songs next to a
+  // count that said 24, so the list comes from the same place the count does.
+  const isShow = sel.kind === "p";
+  const hrs = ms => { const h = ms / 3600000;
+    return h >= 1 ? fmt1(h) + " h" : Math.max(1, Math.round(ms / 60000)) + " min"; };
+  const top = isShow
+    ? (f && f.eps || []).map(x => ({name: x.n, sub: sel.name, _n: hrs(x.ms)}))
+    : f && f.cat && f.cat.top
+    ? f.cat.top.map(([n, c]) => ({name: n, sub: sel.name, _n: c}))
+    : mine.slice(0, 12);
+  const share = f && f.cat
+    ? Math.round(100 * f.cat.topPlays / f.cat.total)
+    : (total && mine.length ? Math.round(100 * lensPlays(mine[0]) / total) : 0);
+
+  const yrs = sel.years.map((n, i) => [YRS[i], n]).filter(([, n]) => n > 0);
+  const all = sel.years.reduce((a, b) => a + b, 0);
+  const peak = sel.years.indexOf(Math.max(...sel.years));
+  const peakShare = all ? Math.round(100 * sel.years[peak] / all) : 0;
+  const span = yrs.length ? (yrs[yrs.length - 1][0] - yrs[0][0] + 1) : 0;
+
+  // Each of these has to say something the readout above does not already say,
+  // or it is just the same number twice in different words.
+  const facts = [];
+  if (songCount > 1) facts.push(`<div><b>${fmt(songCount)}</b> different songs</div>`);
+  if (share >= 40 && songCount > 1)
+    facts.push(`<div><b>${share}%</b> of it is one song</div>`);
+  if (span > 1)
+    facts.push(`<div>in <b>${yrs.length}</b> of the <b>${span}</b> years since I found ${sel.kind === "a" || sel.kind === "g" ? "them" : "it"}</div>`);
+  if (peakShare >= 30 && yrs.length > 2)
+    facts.push(`<div><b>${peakShare}%</b> of it was ${YRS[peak]}</div>`);
+  if (sel.kind === "a" && f && f.yrRank) {
+    const t10 = f.yrRank.filter(x => x.rk <= 10).length, t1 = f.yrRank.filter(x => x.rk === 1).length;
+    if (t10) facts.push(`<div>in my top 10 in <b>${t10}</b> ${t10 === 1 ? "year" : "years"}</div>`);
+    if (t1) facts.push(`<div>my #1 in <b>${t1}</b> ${t1 === 1 ? "year" : "years"}</div>`);
+  }
+  const albums = sel.kind === "a" && f && f.albums ? f.albums : [];
+  const albumRow = n => ROWS.find(x => x.kind === "l" && x.name === n && (x.sub || "") === sel.name);
+
+  el.className = "detail on";
+  el.innerHTML =
+    (top.length
+      ? `<h4>${top.length === 1 ? (isShow ? "Episode" : "Song")
+           : `Top ${Math.min(10, top.length)} ${isShow ? "episodes" : "songs"}`}</h4>
+         <ol class="dtracks">` + top.slice(0, 10).map((r, i) =>
+           `<li ${isShow ? 'data-k="e" ' : ""}data-n="${esc(r.name)}" data-s="${esc(r.sub || "")}">
+              <span class="n">${i + 1}</span>
+              ${sel.kind === "a" || sel.kind === "l" ? plBtn(r.name, r.sub || sel.sub, "dot") : ""}
+              <span class="t">${esc(r.name)}</span>
+              ${sel.kind === "a" ? bedTag(r.name, r.sub) : ""}
+              <span class="v">${typeof r._n === "string" ? r._n : r._n != null ? fmt(r._n)
+                 : unit === "hours" ? fmt1(lensMins(r) / 60) : fmt(lensPlays(r))}</span>
+            </li>`).join("") + `</ol>`
+      : "") +
+    (facts.length ? `<div class="dfacts">${facts.join("")}</div>` : "") +
+    (albums.length
+      ? `<h4 class="next">Top albums</h4><ol class="dalbums">` + albums.map(a => {
+          const u = ART.l[a.n + "\u001f" + sel.name];
+          return `<li ${albumRow(a.n) ? 'class="click" data-k="l"' : ""} data-n="${esc(a.n)}" ` +
+            `data-s="${esc(sel.name)}"><span class="pic">` +
+            (u ? `<img src="${esc(u)}" alt="" loading="lazy" decoding="async">` : "") +
+            `</span><span class="nm">${esc(a.n)}</span><span class="v">${fmt(a.c)}</span></li>`;
+        }).join("") + `</ol>`
+      : "");
+}
+
+$("detail").addEventListener("click", e => openRow(e.target.closest("li[data-n]")));
+function openRow(li){
+  if (!li) return;
+  const r = ROWS.find(x => x.kind === (li.dataset.k || "t") && x.name === li.dataset.n
+                        && (x.sub || "") === li.dataset.s);
+  if (r) { showInBox(r); select(r); }
+  // A song with a play or two is only in the database, not the inlined rows.
+  // Its address opens it the way a shared link would.
+  else if (["t", "e"].includes(li.dataset.k || "t")) {
+    history.pushState({d: ((history.state && history.state.d) || 0) + 1}, "",
+      "#/" + (li.dataset.k || "t") + "/" + slug(li.dataset.n) + (li.dataset.s ? "/" + slug(li.dataset.s) : ""));
+    applyFromUrl(); openPending();
+  }
+}
+
+
+// What gets copied is the tidy path, not the hash. A hash never reaches a
+// server, so a link built from one arrives in a message with nothing to say
+// about itself; /a/Taylor+Swift is served by a small function that carries the
+// real title and description and then sends a person on to the page.
+function shareUrl(){
+  if (!sel) return location.origin + "/";
+  const parts = [sel.kind, slug(sel.name), ...(sel.sub ? [slug(sel.sub)] : [])];
+  return location.origin + "/" + parts.join("/");
+}
+
+
+
+/* ---- the sentence -------------------------------------------------------
+   A link to a chart asks whoever opens it to work out the point for
+   themselves, and most people will not. Every selection gets a few lines of
+   plain English stating what is actually true about it, written from the same
+   numbers the charts are drawn from. The cheap facts come from the payload and
+   land immediately; the ones that need the database fill in behind them. */
+const MONTHS = ["January","February","March","April","May","June","July",
+                "August","September","October","November","December"];
+const niceDay = d => {
+  const [y, m, dd] = d.split("-");
+  return `${+dd} ${MONTHS[+m - 1]} ${y}`;
+};
+// "28 August 2026" is 337px at figure size, which no row of five can carry, so
+// the date had been shrunk to fit -- and a date set smaller than the numbers
+// beside it reads as a lesser fact than they are. Short month, same size.
+// 2020-02-02 is a sort key, not a date. In a list you scan, the month has to
+// be a word or every row reads as the same number.
+const readDay = d => {
+  const [y, m, dd] = d.split("-");
+  return `${MONTHS[+m - 1].slice(0, 3)} ${+dd}, ${y}`;
+};
+
+let factsFor = null;   // {key, days, gapDays, gapFrom, gapTo, backToBack}
+
+// Whose name belongs beside the subject's own: an album and a song are both
+// ambiguous without their artist, an artist and a podcast are not.
+const SUBKINDS = ["t", "l", "e"];
+// Cover art and faces, read once when the database lands. Urls only, so the
+// images come from Spotify's own host and cost this site nothing to serve.
+const ART = {t: {}, l: {}, a: {}, p: {}, g: {}};
+// Some artists have no photograph on Spotify (a cast recording, say). They get
+// one of their own record covers rather than an empty square.
+const ALBUMOF = {};
+let hasArt = false;
+function loadArt(){
+  try {
+    for (const r of run("SELECT kind, key, url FROM art"))
+      if (ART[r.kind]) ART[r.kind][r.key] = r.url;
+    for (const k in ART.l) {
+      const who = k.split("\u001f")[1];
+      if (who && !ALBUMOF[who]) ALBUMOF[who] = ART.l[k];
+    }
+    hasArt = true;
+  } catch (e) {
+    // An older listening.db has no art table. The page is type-only then,
+    // which is what it was before, rather than broken.
+    console.warn("no art table:", e.message);
+  }
+}
+
+// A guest has no picture anywhere in the export, and their show's cover is not
+// a substitute: six Rewatchables regulars in a row all carried the same green
+// circle, which reads as a page that has failed to load rather than as six
+// different people. They get their initials instead, which are at least their
+// own. The colour is the name itself, so a person keeps it everywhere.
+const AVCOL = ["#3f5f8a","#6a4a7c","#8a5a3f","#3f7a6a","#7c4a5a","#4a5a8a",
+               "#6a6a3f","#4a7c5a","#8a4a4a","#5a5a7c"];
+const initials = n => (String(n).match(/\b[\p{L}]/gu) || []).slice(0, 2)
+  .join("").toUpperCase() || "?";
+const avColour = n => {
+  let h = 0;
+  for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0;
+  return AVCOL[h % AVCOL.length];
+};
+const artFor = r => !r ? null
+  : r.kind === "a" ? (ART.a[r.name] || ALBUMOF[r.name])
+  : r.kind === "p" ? ART.p[r.name]
+  // An episode has no picture of its own; its show's cover stands in.
+  : r.kind === "e" ? ART.p[r.sub]
+  // A person's own face where one was found, otherwise the show they are
+  // heard on most. people_art.py says where the faces come from.
+  : r.kind === "g" ? (ART.g[r.name] || ART.p[showOf(r.sub)])
+  // Unit separator, not a null: sql.js truncates a TEXT value at the first
+  // null byte, so the key arrived here as the name with the artist cut off.
+  : (r.kind === "t" || r.kind === "l") ? ART[r.kind][r.name + "\u001f" + (r.sub || "")]
+  : null;
+
+// A square that holds its place whether or not there is a picture for it, so a
+// list does not jog left and right as the images arrive.
+const CAN_HAVE_ART = ["t", "l", "a", "p", "g"];
+// The square is always drawn inside a list, filled or not: three columns whose
+// titles started at 70px, 28px and 26px from their own left edge did not read
+// as one set, and a search result list stepped 37px sideways halfway down.
+function thumb(r, cls){
+  if (!r) return "";
+  const url = artFor(r);
+  if (!url && r.kind === "g")
+    return `<span class="th ${cls || ""} av" style="background:${avColour(r.name)}">` +
+           `<i>${esc(initials(r.name))}</i></span>`;
+  return `<span class="th ${cls || ""}">` +
+    (url ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async">` : "") +
+    `</span>`;
+}
+
+/* ---- tap to hear ---------------------------------------------------------
+   One audio element for the page. A play button names a song; its Spotify id
+   comes from the database, and /api/preview redirects to Spotify's 30-second
+   clip of it. The address is set and played inside the tap itself, which is
+   what a phone needs before it will make a sound. */
+const clip = new Audio();
+let clipKey = "";
+const plBtn = (name, artist, cls) => ready
+  ? `<button class="pl ${cls || ""}" type="button" data-pn="${esc(name)}" ` +
+    `data-ps="${esc(artist || "")}" aria-label="Play a clip of ${esc(name)}"></button>` : "";
+function markClips(){
+  const playing = !clip.paused && !clip.ended;
+  document.querySelectorAll(".pl[data-pn]").forEach(b => {
+    const on = playing && b.dataset.pn + "\u001f" + b.dataset.ps === clipKey;
+    b.classList.toggle("on", on);
+    if (b.id === "clipbtn") b.textContent = on ? "Pause" : "Play clip";
+  });
+}
+["play", "pause", "ended", "error"].forEach(ev => clip.addEventListener(ev, markClips));
+function toggleClip(name, artist){
+  const key = name + "\u001f" + artist;
+  if (clipKey === key && clip.src && !clip.ended) {
+    clip.paused ? clip.play().catch(() => {}) : clip.pause();
+    return;
+  }
+  if (!ready) return;
+  const u = run(`SELECT t.uri u FROM tracks t LEFT JOIN artists a ON a.id = t.artist_id
+                  WHERE t.name = ? AND ifnull(a.name,'') = ? AND t.uri IS NOT NULL LIMIT 1`,
+                [name, artist])[0];
+  if (!u || !u.u) return;
+  clipKey = key;
+  clip.src = "/api/preview?id=" + String(u.u).split(":").pop();
+  // Spotify's clips are louder than its app plays the same song; half is level.
+  try { clip.volume = 0.5; } catch (e) {}
+  clip.play().catch(() => {});
+}
+// Ahead of the row's own click, which opens the song's page.
+document.addEventListener("click", e => {
+  const b = e.target.closest(".pl[data-pn]"); if (!b) return;
+  e.stopPropagation(); e.preventDefault();
+  toggleClip(b.dataset.pn, b.dataset.ps);
+}, true);
+
+const keyOf = r => r ? r.kind + "\u0000" + r.name + "\u0000" + (r.sub || "") : "";
+
+// The facts that need the whole sequence rather than one row. Run once per
+// selection, after the database is up, and re-rendered when they land.
+function loadFacts(r){
+  if (!ready || !r) return;
+  const key = keyOf(r);
+  if (factsFor && factsFor.key === key) return;
+  const where = r.kind === "t"
+      ? "t.name = ? AND ifnull(a.name,'') = ?"
+    : r.kind === "e" ? "ep.name = ? AND sh2.name = ?"
+    : r.kind === "l" ? "t.album = ? AND ifnull(a.name,'') = ?"
+    : r.kind === "a" ? "ar.name = ?"
+    : r.kind === "p" ? "s.name = ?" : null;
+  if (!where) { factsFor = null; return; }
+  const join = (r.kind === "t" || r.kind === "l")
+      ? "JOIN tracks t ON t.id = p.track_id LEFT JOIN artists a ON a.id = t.artist_id"
+    : r.kind === "a" ? "JOIN artists ar ON ar.id = p.artist_id"
+    : r.kind === "e" ? "JOIN episodes ep ON ep.id = p.episode_id JOIN shows sh2 ON sh2.id = ep.show_id"
+    : "JOIN shows s ON s.id = p.show_id";
+  const args = ["t", "l", "e"].includes(r.kind) ? [r.name, r.sub || ""] : [r.name];
+  try {
+    // No half-minute floor here. The row's play count does not use one, so a
+    // floor on the days would put two different definitions in one sentence:
+    // 415 plays across 228 days was true of neither.
+    const days = run(`SELECT p.day d FROM plays p ${join}
+                       WHERE ${where} AND p.is_kid=0 AND p.is_ambient=0
+                       GROUP BY p.day ORDER BY p.day`, args).map(x => x.d);
+    let gap = 0, gf = "", gt = "";
+    for (let i = 1; i < days.length; i++) {
+      const g = (Date.parse(days[i]) - Date.parse(days[i - 1])) / 86400000;
+      if (g > gap) { gap = g; gf = days[i - 1]; gt = days[i]; }
+    }
+    let b2b = 0;
+    if (r.kind === "t") {
+      b2b = run(`WITH seq AS (
+                   SELECT p.track_id id, LAG(p.track_id) OVER (ORDER BY p.day, p.sec) prev
+                     FROM plays p WHERE p.is_kid=0 AND p.is_ambient=0)
+                 SELECT COUNT(*) n FROM seq
+                  WHERE id = prev AND id = (SELECT t.id FROM tracks t
+                        LEFT JOIN artists a ON a.id = t.artist_id
+                        WHERE t.name = ? AND ifnull(a.name,'') = ? LIMIT 1)`,
+               [r.name, r.sub || ""])[0].n;
+    }
+    // Tracks under three plays are left out of the inlined rows, so counting an
+    // artist's catalogue from them undercounts it and inflates the share of the
+    // top song. Counted from the database instead, where all of it is.
+    let cat = null;
+    if (r.kind === "a" || r.kind === "l") {
+      const t = r.kind === "a"
+        ? run(`SELECT t.name n, COUNT(*) c FROM plays p
+                 JOIN tracks t ON t.id = p.track_id
+                 JOIN artists ar ON ar.id = p.artist_id
+                WHERE ar.name = ? AND p.is_kid=0 AND p.is_ambient=0
+                GROUP BY t.id ORDER BY c DESC`, [r.name])
+        : run(`SELECT t.name n, COUNT(*) c FROM plays p
+                 JOIN tracks t ON t.id = p.track_id
+                 LEFT JOIN artists ar ON ar.id = t.artist_id
+                WHERE t.album = ? AND ifnull(ar.name,'') = ?
+                  AND p.is_kid=0 AND p.is_ambient=0
+                GROUP BY t.id ORDER BY c DESC`, [r.name, r.sub || ""]);
+      const total = t.reduce((a, x) => a + x.c, 0);
+      if (t.length) cat = {songs: t.length, topName: t[0].n, topPlays: t[0].c, total,
+                           top: t.slice(0, 12).map(x => [x.n, x.c])};
+    }
+    // A show's episodes by time listened: most are heard once, so a play
+    // count would rank them by how often they were paused.
+    let eps = null;
+    if (r.kind === "p")
+      eps = run(`SELECT ep.name n, SUM(p.ms) ms FROM plays p
+                   JOIN episodes ep ON ep.id = p.episode_id
+                   JOIN shows sh ON sh.id = ep.show_id
+                  WHERE sh.name = ? AND p.is_kid=0 AND p.is_ambient=0
+                  GROUP BY ep.id ORDER BY ms DESC LIMIT 10`, [r.name]);
+    let uri = null;
+    if (r.kind === "t") {
+      const u = run(`SELECT t.uri u FROM tracks t
+                     LEFT JOIN artists a ON a.id = t.artist_id
+                      WHERE t.name = ? AND ifnull(a.name,'') = ? AND t.uri IS NOT NULL
+                      LIMIT 1`, [r.name, r.sub || ""])[0];
+      // Stored as spotify:track:<id>; the web player wants the id alone.
+      if (u && u.u) uri = String(u.u).split(":").pop();
+    }
+    // For an artist: their records, and where they ranked each year and each
+    // season among everyone he played.
+    let albums = null, yrRank = null, seaRank = null;
+    if (r.kind === "a") {
+      const mineP = "p.is_kid=0 AND p.is_ambient=0 AND p.artist_id IS NOT NULL";
+      albums = run(`SELECT t.album n, COUNT(*) c FROM plays p
+                      JOIN tracks t ON t.id = p.track_id
+                      JOIN artists ar ON ar.id = p.artist_id
+                     WHERE ar.name = ? AND ifnull(t.album,'') <> '' AND ${mineP}
+                     GROUP BY t.album ORDER BY c DESC LIMIT 6`, [r.name]);
+      const ranked = bucket => run(`WITH y AS (
+            SELECT ${bucket} b, p.artist_id a, COUNT(*) n FROM plays p WHERE ${mineP} GROUP BY b, a),
+          k AS (SELECT b, a, n, RANK() OVER (PARTITION BY b ORDER BY n DESC) rk FROM y)
+          SELECT k.b b, k.rk rk, k.n n FROM k JOIN artists ar ON ar.id = k.a
+           WHERE ar.name = ? ORDER BY k.b`, [r.name]);
+      yrRank = ranked("substr(p.day,1,4)");
+      const S = D.seasons || [];
+      if (S.length) {
+        const end = y1 => { const m = Math.round(y1 * 12);
+          return `${Math.floor(m / 12)}-${String(m % 12 + 1).padStart(2, "0")}-01`; };
+        seaRank = ranked("CASE " + S.slice(0, -1).map((x, i) =>
+          `WHEN p.day < '${end(x[2])}' THEN ${i}`).join(" ") + ` ELSE ${S.length - 1} END`);
+      }
+    }
+    factsFor = {key, days: days.length, gapDays: gap, gapFrom: gf, gapTo: gt,
+                backToBack: b2b, cat, eps, uri, albums, yrRank, seaRank};
+  } catch (e) { console.error(e); factsFor = null; }
+}
+
+/* ---- the findings, for one subject --------------------------------------
+   The seven panels above are the same on every visit, which is what makes them
+   a magazine rather than a tool. When something is selected they are recomputed
+   for it: the same questions, asked of one artist. All of it comes out of the
+   database in the browser, so it costs a query and nothing else. */
+function findingsFor(r){
+  // Podcasts belong here as much as artists do: when in the day, which day and
+  // on what are the same questions and the same columns. A person is parsed out
+  // of episode titles rather than joined, so the build hands over the episode
+  // ids they appear in and the query goes through those instead.
+  if (!ready || !r || !["a", "t", "p", "g", "l", "e"].includes(r.kind)) return null;
+  let eps = null;
+  if (r.kind === "g") {
+    eps = (D.peopleEps || {})[r.name];
+    if (!eps || !eps.length) return null;
+  }
+  const join = r.kind === "a" ? "JOIN artists ar ON ar.id = p.artist_id"
+    : r.kind === "p" ? "JOIN shows sh ON sh.id = p.show_id"
+    : r.kind === "e" ? "JOIN episodes ep ON ep.id = p.episode_id JOIN shows sh ON sh.id = ep.show_id"
+    : r.kind === "g" ? ""
+    : "JOIN tracks t ON t.id = p.track_id LEFT JOIN artists a2 ON a2.id = t.artist_id";
+  // An album is identified by its title and its artist together, because
+  // soundtracks and compilations share titles across artists.
+  const where = r.kind === "a" ? "ar.name = ?" : r.kind === "p" ? "sh.name = ?"
+    : r.kind === "g" ? `p.episode_id IN (${eps.join(",")})`
+    : r.kind === "l" ? "t.album = ? AND ifnull(a2.name,'') = ?"
+    : r.kind === "e" ? "ep.name = ? AND sh.name = ?"
+    : "t.name = ? AND ifnull(a2.name,'') = ?";
+  const args = ["t", "l", "e"].includes(r.kind) ? [r.name, r.sub || ""]
+    : r.kind === "g" ? [] : [r.name];
+  const base = `FROM plays p ${join} WHERE ${where} AND p.is_kid=0 AND p.is_ambient=0`;
+  try {
+    return {
+      hours: run(`SELECT p.hour h, COUNT(*) n ${base} GROUP BY p.hour`, args),
+      dow: run(`SELECT p.dow d, COUNT(*) n ${base} GROUP BY p.dow`, args),
+      // release_year, device and country were three more queries feeding three
+      // panels that each said one short thing; the panels are gone.
+      night: run(`SELECT COUNT(*) n ${base} AND p.hour < 6`, args)[0],
+      total: run(`SELECT COUNT(*) n ${base}`, args)[0],
+    };
+  } catch (e) { console.error(e); return null; }
+}
+
+function paintSubjectFindings(){
+  const host = $("subjectfinds");
+  const f = findingsFor(sel);
+  if (!f || !f.total || !f.total.n) { host.innerHTML = ""; host.hidden = true; return; }
+  const n = f.total.n, out = [];
+  const HRS = new Array(24).fill(0);
+  for (const row of f.hours) HRS[row.h] = row.n;
+  const DWS = new Array(7).fill(0);
+  for (const row of f.dow) DWS[row.d] = row.n;
+
+  const hh = h => (h === 0 ? "midnight" : h === 12 ? "midday"
+                  : h < 12 ? h + "am" : (h - 12) + "pm");
+  const peakHour = HRS.indexOf(Math.max(...HRS));
+  const allHrs = D.facets.hour.mine;
+  const allPeak = allHrs.indexOf(Math.max(...allHrs));
+  const allNight = allHrs.slice(0, 6).reduce((a, b) => a + b, 0)
+                 / allHrs.reduce((a, b) => a + b, 0);
+  const night = f.night.n / n;
+  const THEM = ["a", "g"].includes(sel.kind) ? "them" : "it";
+  out.push(panel(`When I play ${THEM}`,
+    `Most often around <b>${hh(peakHour)}</b>` +
+    (peakHour === allPeak ? `, which is when I play everything.`
+      : `, against <b>${hh(allPeak)}</b> for everything I play.`) +
+    // Only when the small hours are a real difference, not 5% against 7%.
+    (night >= 0.1 && night >= 2 * allNight
+      ? ` <b>${Math.round(100 * night)}%</b> of it is before 6am, ` +
+        `against <b>${Math.round(100 * allNight)}%</b> overall.` : ""),
+    spark(HRS, HRS.map((_, h) => (h % 12 || 12) + (h < 12 ? "am" : "pm")), allHrs, 6)));
+
+  const peakDow = DWS.indexOf(Math.max(...DWS));
+  const allDow = D.facets.dow.mine;
+  const allDowTot = allDow.reduce((a, b) => a + b, 0);
+  const share = DWS[peakDow] / n, allShare = allDow[peakDow] / allDowTot;
+  // The axis is abbreviated because it has 7 slots and no room; prose is not,
+  // because "a Sat habit" is not a sentence anybody writes.
+  const DAYFULL = ["Monday","Tuesday","Wednesday","Thursday","Friday",
+                   "Saturday","Sunday"];
+  const dayName = DAYFULL[peakDow];
+  // Always shown, so every page has the same two cards side by side. The
+  // shuffle card that sometimes took the second place was one sentence in a
+  // card the height of a chart.
+  out.push(panel("Which day",
+    `${dayName} more than any other: <b>${Math.round(100 * share)}%</b> of plays, ` +
+    `against <b>${Math.round(100 * allShare)}%</b> for everything.`,
+    spark(DWS, DOW, allDow, 1)));
+
+  // The vintage, the device and the countries were three more panels that each
+  // said one short thing. A record's release year is on the record; which
+  // handset it came out of is not a fact about the record; and seven plays in
+  // the Netherlands is a coincidence rather than a finding. When, which day and
+  // whether it was chosen are about him, which is the point.
+
+  // The seasons this artist was a large part of, each a way into that season.
+  const ff = factsFor && factsFor.key === keyOf(sel) ? factsFor : null;
+  if (sel.kind === "a" && ff && ff.seaRank) {
+    const S = D.seasons, inTop = ff.seaRank.filter(x => x.rk <= 10);
+    if (inTop.length)
+      out.push(panel("My seasons",
+        `In the top 10 of <b>${inTop.length}</b> of my <b>${S.length}</b> seasons.`,
+        `<ol class="seas">` + inTop.map(x =>
+          `<li class="click" data-href="/story.html#${x.b + 1}">` +
+          `<span class="rk">#${x.rk}</span>` +
+          `<span class="t">${esc(S[x.b][0])}</span>` +
+          `<span class="s">Season ${x.b + 1}</span>` +
+          `<span class="v">${fmt(x.n)}</span></li>`).join("") + `</ol>`));
+  }
+
+  host.innerHTML = out.join("");
+  host.hidden = false;
+}
+$("subjectfinds").addEventListener("click", e => {
+  const li = e.target.closest("li[data-href]");
+  if (li) location.href = li.dataset.href;
+});
+
+/* ---- findings -----------------------------------------------------------
+   Each one states its claim in a sentence first. A chart on its own asks the
+   reader to find the point; a sentence hands it over and lets the chart back
+   it up, which is also what makes any of this worth sending to somebody. */
+// An optional second series, drawn behind at the same scale. It is how the
+// shape of one artist gets read against the shape of everything: on its own a
+// bar chart of someone's listening hours only says "evenings", which is true
+// of almost everybody here.
+function spark(vals, labels, ref, every){
+  const mx = Math.max(...vals, 1);
+  const rmx = ref ? Math.max(...ref, 1) : 1;
+  return `<div><div class="spark">` + vals.map((v, i) =>
+    `<i style="height:${Math.max(2, 100 * v / mx)}%" title="${esc(labels[i])}: ${v}">` +
+    (ref ? `<u style="height:${Math.max(1, 100 * ref[i] / rmx)}%"></u>` : "") +
+    `</i>`).join("") + `</div>` +
+    // Every label, or every Nth, under its own bar; or just the two ends.
+    (every ? `<div class="sparkx each">` + labels.map((l, i) =>
+        `<span>${i % every ? "" : esc(l)}</span>`).join("") + `</div></div>`
+      : `<div class="sparkx"><span>${esc(labels[0])}</span>` +
+        `<span>${esc(labels[labels.length - 1])}</span></div></div>`);
+}
+
+function panel(title, claim, body){
+  return `<div class="panel find"><h3>${title}</h3>` +
+         `<div class="claim">${claim}</div>${body}</div>`;
+}
+
+// The cards carry names, not rows, so the picture is looked up from the name
+// the same way a row would. Small: these are lists you read, not a band.
+const icon = (kind, name, sub) => thumb({kind, name, sub: sub || ""}, "sm");
+
+// Two cards, because sixteen years of trips will not read as one list: the
+// places he goes back to and the places he went once are different questions.
+// Columns, like a sheet: the years line up under each other, then hours, then
+// the share, rather than everything pushed right in one ragged run.
+function cityCard(title, claim, rows){
+  return panel(title, claim, `<ol class="cities">` +
+    rows.map(([place, n, span, years, hrs, pct], i) =>
+    `<li><span class="rk">${i + 1}</span><span class="t">${esc(place)}</span>` +
+    `<span class="yr">${esc(span)}</span>` +
+    `<span class="ny">${years > 1 ? years + "y" : ""}</span>` +
+    `<span class="v">${fmt(hrs)}h</span>` +
+    `<span class="v">${pct < 1 ? pct.toFixed(1) : Math.round(pct)}%</span></li>`).join("") +
+    `</ol>`);
+}
+const rank = i => `<span class="rk">${i + 1}</span>`;
+
+function paintFindings(){
+  const out = [];
+  const LIST = 10;  // every panel's list, so no card is twice another's height
+  if (D.cities) {
+    const C = D.cities;
+    // Every claim here has to fit in two lines at the narrowest card.
+    if (C.us && C.us.length) out.push(cityCard(`Out of ${HOMELBL}`,
+      `<b>${100 - C.bayPct}%</b> of my listening was outside ${HOMELBL}: ` +
+      `<b>${fmt(C.awayHours)}</b> hours.`, C.us));
+    if (C.abroad && C.abroad.length)
+      out.push(cityCard("Out of the country",
+        `<b>${fmt(C.abroadHours)}</b> hours in <b>${C.abroadCountries}</b> countries. ` +
+        `${esc(C.abroad[0][0].split(",")[0])} is <b>${Math.round(C.abroad[0][5])}%</b> of it.`,
+        C.abroad));
+  }
+
+  if (D.repeats && D.repeats.days && D.repeats.days.length) {
+    const R = D.repeats.days.slice(0, LIST);
+    out.push(panel("Days one song took over",
+      `On <b>${fmt(D.repeats.total)}</b> days I played one song 10 times or more.`,
+      `<ol class="days">` + R.map(([day, tn, an, n], i) =>
+        `<li class="click" data-k="t" data-n="${esc(tn)}" data-s="${esc(an)}">` +
+        rank(i) + icon("t", tn, an) +
+        `<span class="t">${esc(tn)}</span><span class="s click" data-day="${day}">${readDay(day)}</span>` +
+        `<span class="v">${n}&times;</span></li>`).join("") + `</ol>`));
+  }
+
+  if (D.onesong && D.onesong.length) {
+    const O = D.onesong.slice(0, LIST);
+    out.push(panel("Artists who are one song",
+      `<b>${D.onesong.length}</b> artists I have played 150+ times are mostly one song.`,
+      `<ol class="pairs">` + O.map(([an, n, tn, tp], i) =>
+        `<li class="click" data-k="a" data-n="${esc(an)}">` +
+        rank(i) + icon("a", an) +
+        `<span class="t">${esc(an)}</span>` +
+        // The row opens the artist; the track named on it opens the track,
+        // which is the one you are usually pointing at when you read this.
+        `<span class="sg"><span class="s click" data-k="t" data-n="${esc(tn)}" ` +
+        `data-s="${esc(an)}">${esc(tn)}</span>` + bedTag(tn, an) + `</span>` +
+        `<span class="v">${Math.round(100 * tp / n)}%</span></li>`).join("") + `</ol>`));
+  }
+
+  // Everything else here reports. This is the one that asks for something: a
+  // record he played hard and then stopped, or one he has only ever heard a
+  // corner of. Both are computed from rows already on the page, so the list is
+  // different every time the export moves and needs nothing new from the build.
+  {
+    const lastDay = Date.parse(D.meta.last);
+    // Ranked by how long it has been rather than filtered on a fixed gap.
+    // Over sixteen years he comes back to almost everything eventually, so a
+    // two-year cut returns nothing and says nothing.
+    const cold = ROWS
+      .filter(r => r.kind === "a" && r.minePlays >= 150)
+      .sort((a, b) => (a.last < b.last ? -1 : a.last > b.last ? 1 : 0))
+      .slice(0, LIST);
+
+    if (cold.length) {
+      const gapOf = r => {
+        const d = Math.floor((lastDay - Date.parse(r.last)) / 86400000);
+        const y = Math.floor(d / 365), m = Math.floor((d % 365) / 30);
+        return y >= 1 ? `${y}y${m ? " " + m + "m" : ""}` : `${m}m`;
+      };
+      // The claim is one line beside its neighbour's, whoever leads the list:
+      // "Les Misérables-Original London Cast" took it to two and pushed its
+      // rows out of step with the card next to it. The list keeps full names.
+      const lead = cold[0].name.split(/\s*[-(:]/)[0].trim() || cold[0].name;
+      const brief = lead.length > 24 ? lead.slice(0, 23).trimEnd() + "\u2026" : lead;
+      // The title says what the list is (favourites) and the claim says how
+      // it is ordered, because "169" alone on a row did not say it was plays
+      // and nothing said these were chosen for being played a lot.
+      out.push(panel("Old favourites worth going back to",
+        `${esc(brief)}: <b>${fmt(cold[0].minePlays)}</b> plays, ` +
+        `none in <b>${gapOf(cold[0])}</b>.`,
+        `<ul>` + cold.map((r, i) =>
+          `<li class="click" data-k="a" data-n="${esc(r.name)}">` +
+          rank(i) + icon("a", r.name) +
+          `<span class="t">${esc(r.name)}</span>` +
+          `<span class="s">${fmt(r.minePlays)} plays</span>` +
+          `<span class="v gap">${gapOf(r)} ago</span></li>`).join("") + `</ul>`));
+    }
+  }
+
+  if (D.openers && D.openers.length) {
+    const O = D.openers, top = O[0];
+    out.push(panel("What I put on first",
+      `${esc(top[0])} starts <b>${D.sessions ? Math.round(100 * top[1] / D.sessions.total) : 0}%</b> ` +
+      `of my <b>${fmt(D.sessions ? D.sessions.total : 0)}</b> listening sessions.`,
+      `<ol>` + O.slice(0, LIST).map(([an, n], i) =>
+        `<li class="click" data-k="a" data-n="${esc(an)}">` +
+        rank(i) + icon("a", an) +
+        `<span class="t">${esc(an)}</span>` +
+        `<span class="v">${fmt(n)}</span></li>`).join("") + `</ol>`));
+  }
+
+  // Which one leads rotates by the date. All nine are equally true on any given
+  // day, so the order was arbitrary already; making it turn means the page is
+  // not the identical object every time it opens.
+  // Two at a time, so cards that belong side by side (the two about places)
+  // stay on one row whichever pair leads.
+  const turn = 2 * (Math.floor(Date.now() / 86400000) % Math.ceil(out.length / 2));
+  const ordered = out.slice(turn).concat(out.slice(0, turn));
+  // Six cards pack into two rows of three with nothing left over, so there is
+  // nothing to hold back and no button to hold it back with.
+  $("finds").innerHTML = onThisDay() + ordered.join("") + discoveries() + decades();
+}
+
+// Today's date in every year of the history: of the songs played that day, the
+// one played most that year, with that year's count beside it. Bedtime songs
+// come last: played nightly for years, they would be the answer every day, so
+// one is shown only when nothing else was played.
+// It leads the cards and does not take a turn in their rotation, because it is
+// the one that is new each morning. It needs the database, so it arrives with it.
+function onThisDay(){
+  if (!ready) return "";
+  const now = new Date();
+  const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") +
+                   "-" + String(d.getDate()).padStart(2, "0");
+  // A year with no music on the date itself (2021 had only podcasts on Oct 5)
+  // would leave a hole in the run of years, so the nearest day within two weeks
+  // stands in for it. One query over every candidate day, then the closest.
+  const REACH = 14, want = {};          // day -> [year, distance]
+  for (const y of YRS) {
+    const on = iso(new Date(y, now.getMonth(), now.getDate()));
+    if (on < D.meta.first || on > D.meta.last) continue;
+    for (let o = -REACH; o <= REACH; o++) {
+      const d = iso(new Date(y, now.getMonth(), now.getDate() + o));
+      if (d >= D.meta.first && d <= D.meta.last && d.slice(0, 4) === String(y))
+        want[d] = [y, Math.abs(o) * 2 + (o > 0 ? 1 : 0)];
+    }
+  }
+  const days = Object.keys(want);
+  if (!days.length) return "";
+  let rows = [];
+  try {
+    // A song with a picture is preferred to one without: a recording Spotify
+    // has since withdrawn would leave an empty square. otd.py runs the same
+    // choice over every date so the build can check none is left.
+    const all = run(`WITH d AS (
+          SELECT p.day day, p.track_id id, COUNT(*) n, MIN(p.sec) s
+            FROM plays p
+           WHERE p.is_kid=0 AND p.is_ambient=0 AND p.track_id IS NOT NULL
+             AND p.day IN (${days.map(() => "?").join(",")})
+           GROUP BY p.day, id),
+        yc AS (
+          SELECT substr(p.day,1,4) y, p.track_id id, COUNT(*) c
+            FROM plays p
+           WHERE p.is_kid=0 AND p.is_ambient=0 AND p.track_id IS NOT NULL
+           GROUP BY y, p.track_id),
+        j AS (SELECT d.*, yc.c c, t.name tn, ifnull(a.name,'') an, x.url IS NOT NULL pic,
+                     t.name || char(31) || ifnull(a.name,'') IN (${[...BED].map(() => "?").join(",") || "''"}) bed
+                FROM d JOIN yc ON yc.id = d.id AND yc.y = substr(d.day,1,4)
+                JOIN tracks t ON t.id = d.id
+                LEFT JOIN artists a ON a.id = t.artist_id
+                LEFT JOIN art x ON x.kind = 't'
+                               AND x.key = t.name || char(31) || ifnull(a.name,'')),
+        k AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY day ORDER BY pic DESC, bed, c DESC, n DESC, s) rk,
+                     SUM(n) OVER (PARTITION BY day) tot FROM j)
+        SELECT day, n, c, tot, tn, an FROM k WHERE rk = 1`, [...days, ...BED]);
+    const best = {};
+    for (const r of all) {
+      const [y, far] = want[r.day];
+      if (!best[y] || far < best[y].far) best[y] = {...r, y, far};
+    }
+    rows = Object.values(best).sort((a, b) => a.y - b.y);
+  } catch (e) { console.error(e); }
+  if (!rows.length) return "";
+  const total = rows.reduce((a, r) => a + r.tot, 0);
+  return `<div class="panel find span"><h3>On this day</h3>` +
+    `<div class="claim">${MONTHS[now.getMonth()].slice(0, 3)} ${now.getDate()} in ` +
+    `<b>${rows.length}</b> ${rows.length === 1 ? "year" : "years"}: ` +
+    `<b>${fmt(total)}</b> plays.</div>` +
+    `<ol class="otd">` + rows.map(r =>
+      `<li class="click" data-k="t" data-n="${esc(r.tn)}" data-s="${esc(r.an)}">` +
+      `<span class="yr click" data-day="${r.day}">${r.y}</span>` + icon("t", r.tn, r.an) +
+      `<span class="t">${esc(r.tn)}</span><span class="s">${esc(r.an)}</span>` +
+      `<span class="v">${fmt(r.c)} ${r.c === 1 ? "play" : "plays"}</span></li>`).join("") + `</ol></div>`;
+}
+
+$("finds").addEventListener("click", e => {
+  // A row can carry a second target inside it -- the track named on an
+  // artist's row -- so the innermost one wins, and the row is the fallback.
+  const li = e.target.closest(".click"); if (!li) return;
+  if (li.dataset.day) return openDay(li.dataset.day);
+  const r = ROWS.find(x => x.kind === li.dataset.k && x.name === li.dataset.n
+                        && (li.dataset.s == null || (x.sub || "") === li.dataset.s));
+  if (r) { showInBox(r); select(r); }
+  // A song played a handful of times is only in the database.
+  else if (li.dataset.k === "t") {
+    history.pushState({d: ((history.state && history.state.d) || 0) + 1}, "",
+      "#/t/" + slug(li.dataset.n) + (li.dataset.s ? "/" + slug(li.dataset.s) : ""));
+    applyFromUrl(); openPending();
+  }
+});
+
+/* ---- search ------------------------------------------------------------ */
+const sBox = $("s"), resEl = $("res");
+// One line at both sizes. Listing the four kinds described the index rather
+// than the job, and was long enough that a phone got the word "Search" alone.
+let hits = [], cur = -1, tmr = 0;
+
+// A song is its title and whose it is. The box used to show "Thirteen", which
+// is four different records. The flag stops a redraw searching for the
+// displayed string, because "Thirteen - Big Star" is not a query.
+let boxIsSubject = false;
+const SUBBED = ["t", "l", "e"];
+function showInBox(r){
+  sBox.value = r ? r.name + (r.sub && SUBBED.includes(r.kind) ? " — " + r.sub : "") : "";
+  boxIsSubject = !!r;
+  $("sx").style.display = r ? "block" : "none";
+}
+// Twelve is what fits without the list becoming the page. The kinds are
+// ordered by how specific a match usually is: naming an artist or an album is
+// almost always deliberate, naming a track can be a coincidence of wording,
+// and a person is parsed out of an episode title, so it is the loosest.
+const HITS = 12, KORDER = ["a", "l", "t", "p", "e", "g"];
+function search(q){
+  q = q.trim().toLowerCase();
+  if (!q) return [];
+  const words = q.split(/\s+/);
+  const out = [];
+  const seen = new Set();
+  for (const r of ROWS) {
+    if (kind && r.kind !== kind) continue;
+    if (!visible(r)) continue;
+    const h = r.hay;
+    if (!words.every(w => h.includes(w))) continue;
+    if (r.kind === "t") seen.add(r.name.toLowerCase() + "\u0000" + (r.sub||"").toLowerCase());
+    const n = r.name.toLowerCase();
+    out.push([n === q ? 0 : n.startsWith(q) ? 1 : h.startsWith(q) ? 2 : 3, -r.plays, r]);
+    if (out.length > 900) break;
+  }
+  // Tracks played once or twice are left out of the inline payload -- 31,480 of
+  // 45,855 of them. They live in listening.db, and until now nothing ever went
+  // and got them, while the page told you they were still loading.
+  if (!kind || kind === "t") {
+    for (const r of searchDb(q, seen)) {
+      if (!visible(r)) continue;
+      const n = r.name.toLowerCase(), h = r.hay;
+      if (!words.every(w => h.includes(w))) continue;
+      out.push([n === q ? 0 : n.startsWith(q) ? 1 : h.startsWith(q) ? 2 : 3, -r.plays, r]);
+    }
+  }
+  out.sort((a,b) => a[0]-b[0] || a[1]-b[1]);
+  // Forty rows ranked on where the query fell in the string meant that typing
+  // "taylor" gave eleven tracks played once each, all of them titled Taylor
+  // something, above Taylor Swift and above folklore. An exact name still wins
+  // outright; after that the kinds take their turn, so the artist and the album
+  // are always in view rather than buried under the long tail of titles.
+  const exact = out.filter(o => o[0] === 0).map(o => o[2]);
+  const rest = {};
+  for (const o of out) if (o[0] !== 0) (rest[o[2].kind] = rest[o[2].kind] || []).push(o[2]);
+  const base = Math.min(exact.length, HITS);
+  let res = exact.slice(0, HITS);
+  for (const per of [3, 6, HITS]) {
+    if (res.length >= HITS) break;
+    res = exact.slice(0, base);
+    for (const k of KORDER)
+      for (const r of (rest[k] || []).slice(0, per))
+        if (res.length < HITS) res.push(r);
+  }
+  return res.slice(0, HITS);
+}
+
+// The long tail, fetched on demand. Candidates come off the indexed track and
+// artist names; the counts then cost one pass over plays, which is why this is
+// only reached from the debounced search and never on a keystroke.
+const dbCache = new Map();
+function searchDb(q, seen){
+  if (!ready || q.length < 2) return [];
+  if (dbCache.has(q)) return dbCache.get(q).filter(r => !seen.has(r.key));
+  let rows = [];
+  try {
+    const like = "%" + q.replace(/[%_\\]/g, m => "\\" + m) + "%";
+    const cand = run(
+      `SELECT t.id, t.name, ifnull(a.name,'') sub
+         FROM tracks t LEFT JOIN artists a ON a.id = t.artist_id
+        WHERE lower(t.name) LIKE ? ESCAPE '\\'
+           OR lower(ifnull(a.name,'')) LIKE ? ESCAPE '\\'
+        LIMIT 300`, [like, like]);
+    if (cand.length) {
+      const ids = cand.map(c => c.id);
+      const marks = ids.map(() => "?").join(",");
+      const agg = run(
+        `SELECT track_id, substr(day,1,4) y, COUNT(*) n, SUM(ms) ms,
+                MIN(day) f, MAX(day) l, SUM(is_skip) sk,
+                SUM(is_kid AND NOT is_ambient) kid, SUM(is_ambient) amb
+           FROM plays WHERE track_id IN (${marks}) GROUP BY track_id, y`, ids);
+      const by = new Map();
+      for (const a of agg) {
+        let e = by.get(a.track_id);
+        if (!e) by.set(a.track_id, e = {years: new Array(YRS.length).fill(0),
+          n:0, ms:0, sk:0, kid:0, amb:0, f:"9999", l:"0000"});
+        const yi = +a.y - Y0;
+        if (yi >= 0 && yi < YRS.length) e.years[yi] += a.n;
+        e.n += a.n; e.ms += a.ms; e.sk += a.sk; e.kid += a.kid; e.amb += a.amb;
+        if (a.f < e.f) e.f = a.f;
+        if (a.l > e.l) e.l = a.l;
+      }
+      for (const c of cand) {
+        const e = by.get(c.id);
+        if (!e) continue;
+        rows.push({kind:"t", name:c.name, sub:c.sub, plays:e.n,
+          mins: Math.round(e.ms/60000), years:e.years, first:e.f, last:e.l,
+          skip: e.n ? +(100*e.sk/e.n).toFixed(1) : -1,
+          kidPlays:e.kid, kidMins:0, ambPlays:e.amb, ambMins:0,
+          minePlays: e.n - e.kid - e.amb,
+          mineMins: Math.round(e.ms/60000),
+          key: c.name.toLowerCase() + "\u0000" + c.sub.toLowerCase(),
+          hay: (c.name + " " + c.sub).toLowerCase()});
+      }
+    }
+  } catch (e) { console.error(e); }
+  dbCache.set(q, rows);
+  return rows.filter(r => !seen.has(r.key));
+}
+const KLBL = {t:"Song", a:"Artist", l:"Album", p:"Podcast", g:"Person", e:"Episode"};
+function renderRes(){
+  if (!hits.length) {
+    resEl.innerHTML = sBox.value.trim()
+      ? `<li class="none">Nothing matching that${ready ? "." : " yet — still loading the rest."}</li>` : "";
+    resEl.style.display = sBox.value.trim() ? "block" : "none";
+    return;
+  }
+  resEl.innerHTML = hits.map((r, i) =>
+    `<li role="option" class="${i===cur?"cur":""}" data-i="${i}">` +
+    thumb(r, "sm") +
+    `<span class="k">${KLBL[r.kind]}</span>` +
+    `<span class="t">${esc(r.name)}</span>` +
+    `<span class="s">${esc(r.sub||"")}</span>` +
+    `<span class="n">${fmt(lensPlays(r))}</span></li>`).join("");
+  resEl.style.display = "block";
+}
+function closeRes(){ resEl.style.display = "none"; cur = -1; }
+sBox.addEventListener("input", () => {
+  boxIsSubject = false;
+  $("sx").style.display = sBox.value ? "block" : "none";
+  // Debounced: the old page scanned every row on every keystroke.
+  clearTimeout(tmr);
+  tmr = setTimeout(() => { hits = search(sBox.value); cur = -1; renderRes(); }, 90);
+});
+sBox.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    if (!hits.length) return;
+    cur = (cur + (e.key === "ArrowDown" ? 1 : -1) + hits.length) % hits.length;
+    renderRes();
+    resEl.children[cur] && resEl.children[cur].scrollIntoView({block:"nearest"});
+  } else if (e.key === "Enter" && cur >= 0) { choose(hits[cur]); }
+  else if (e.key === "Escape") { sBox.value = ""; closeRes(); select(null); }
+});
+resEl.addEventListener("click", e => {
+  const li = e.target.closest("li[data-i]"); if (li) choose(hits[+li.dataset.i]);
+});
+$("sx").addEventListener("click", () => {
+  sBox.value = ""; $("sx").style.display = "none"; closeRes(); select(null); sBox.focus();
+});
+function choose(r){ closeRes(); sBox.blur(); showInBox(r); select(r); }
+
+// Where the page was when a subject was opened, so Back can put it back. The
+// old behaviour scrolled you to the top of the document, which meant clicking
+// the fourteenth song in a list lost the list.
+let cameFrom = 0;
+
+function select(r){
+  const opening = !!r && !sel && !dayView;
+  dayView = null;
+  if (opening) cameFrom = scrollY;
+  sel = r; monthly = null;
+  if (r) boardYear = null;
+  // The window is the subject's own span, so the bars are a different set.
+  buildBars();
+  paintHero(); paintChart(); renderBoards();
+  if (r) {
+    loadMonthly(r);
+    refreshSubject(r);
+    // A subject screen starts at its own top, not wherever the list left us.
+    scrollTo({top: 0, behavior: opening ? "smooth" : "auto"});
+  } else {
+    scrollTo({top: cameFrom, behavior: "auto"});
+  }
+  paintFacets();
+  if (!r) { $("subjectfinds").hidden = true; $("subjectfinds").innerHTML = ""; }
+  syncAll();
+  writeHash();
+}
+
+$("note").addEventListener("click", e => {
+  const a = e.target.closest("a[data-show]"); if (!a) return;
+  const r = ROWS.find(x => x.kind === "p" && x.name === a.dataset.show);
+  if (r) { e.preventDefault(); showInBox(r); select(r); }
+});
+
+// A year under the main chart opens that year, the same as choosing it in When.
+$("xax").addEventListener("click", e => {
+  const y = e.target.closest("span[data-y]"); if (!y || sel) return;
+  boardYear = +y.dataset.y; syncAll(); redraw();
+  scrollTo({top: 0, behavior: "smooth"});
+});
+
+// One step back: from an album reached through its artist, that is the
+// artist. A page opened from a link has nowhere behind it, so it goes home.
+function goBack(){
+  if (history.state && history.state.d > 0) { history.back(); return; }
+  sBox.value = ""; $("sx").style.display = "none"; closeRes();
+  select(null);
+}
+$("back").addEventListener("click", goBack);
+/* ---- a single day ------------------------------------------------------
+   #/d/2019-10-05. What was played most that day, never the play-by-play: the
+   page is public, and a timestamped log of a day is more than it needs to say. */
+const WEEKDAY = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const dateOf = d => { const [y, m, dd] = d.split("-"); return new Date(+y, +m - 1, +dd); };
+const isoOf = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") +
+                   "-" + String(d.getDate()).padStart(2, "0");
+const longDay = d => `${WEEKDAY[dateOf(d).getDay()]}, ${readDay(d)}`;
+
+// The calendar is a page of its own, reached from a banner on the home page.
+// It shares the day pages' state so Back from a day lands on it.
+function openDay(d){
+  if (d !== ALLDAYS && (!d || d < D.meta.first || d > D.meta.last)) return;
+  if (dayView === ALLDAYS) calFrom = scrollY;
+  else if (!sel && !dayView) cameFrom = scrollY;
+  if (d === ALLDAYS) calFrom = 0;
+  sel = null; dayView = d; monthly = null;
+  showInBox(null); closeRes();
+  paintHero();
+  writeHash();
+  scrollTo({top: 0, behavior: "auto"});
+}
+$("calban").addEventListener("click", e => { e.preventDefault(); openDay(ALLDAYS); });
+
+function paintDay(){
+  const el = $("dayview");
+  if (!dayView) { el.innerHTML = ""; return; }
+  const head = body =>
+    `<div class="backrow"><button class="back" type="button" data-act="back">&larr; Back</button></div>` +
+    (dayView === ALLDAYS ? "" : `<p class="by">Day</p>`) + body;
+  if (dayView === ALLDAYS) { el.innerHTML = head(`<div class="dayhead"><h1>Every day</h1></div>`); return; }
+  if (!ready) { el.innerHTML = head(`<div class="dayhead"><h1>${longDay(dayView)}</h1></div>`); return; }
+  const lensWhere = lens === "all" ? "" : lens === "kids"
+    ? " AND p.is_kid=1 AND p.is_ambient=0" : " AND p.is_kid=0 AND p.is_ambient=0";
+  let tot, songs, artists, shows, prev, next;
+  try {
+    tot = run(`SELECT COUNT(*) n, ifnull(SUM(p.ms),0) ms, COUNT(DISTINCT p.track_id) songs,
+                      COUNT(DISTINCT p.artist_id) artists
+                 FROM plays p WHERE p.day = ?${lensWhere}`, [dayView])[0];
+    songs = run(`SELECT t.name n, ifnull(a.name,'') s, COUNT(*) c
+                   FROM plays p JOIN tracks t ON t.id = p.track_id
+                   LEFT JOIN artists a ON a.id = t.artist_id
+                  WHERE p.day = ?${lensWhere}
+                  GROUP BY p.track_id ORDER BY c DESC, MIN(p.sec) LIMIT 10`, [dayView]);
+    artists = run(`SELECT a.name n, COUNT(*) c FROM plays p JOIN artists a ON a.id = p.artist_id
+                    WHERE p.day = ?${lensWhere}
+                    GROUP BY p.artist_id ORDER BY c DESC, MIN(p.sec) LIMIT 6`, [dayView]);
+    shows = run(`SELECT s.name n, SUM(p.ms) ms FROM plays p JOIN shows s ON s.id = p.show_id
+                  WHERE p.day = ?${lensWhere}
+                  GROUP BY p.show_id ORDER BY ms DESC LIMIT 6`, [dayView]);
+    prev = run(`SELECT MAX(p.day) d FROM plays p WHERE p.day < ?${lensWhere}`, [dayView])[0].d;
+    next = run(`SELECT MIN(p.day) d FROM plays p WHERE p.day > ?${lensWhere}`, [dayView])[0].d;
+  } catch (e) { console.error(e); return; }
+  const hrs = tot.ms / 3600000;
+  const fig = [[fmt(tot.n), tot.n === 1 ? "play" : "plays"],
+    hrs >= 1 ? [fmt1(hrs), "hours"] : [String(Math.round(tot.ms / 60000)), "min"],
+    [fmt(tot.songs), tot.songs === 1 ? "song" : "songs"],
+    [fmt(tot.artists), tot.artists === 1 ? "artist" : "artists"]];
+  const mins = ms => ms >= 3600000 ? fmt1(ms / 3600000) + " h" : Math.max(1, Math.round(ms / 60000)) + " min";
+  el.innerHTML = head(
+    `<div class="dayhead"><h1>${longDay(dayView)}</h1>` +
+    `<span class="daynav">` +
+      `<button type="button" data-day="${prev || ""}" ${prev ? "" : "disabled"} aria-label="Earlier day">&#8249;</button>` +
+      `<button type="button" data-day="${next || ""}" ${next ? "" : "disabled"} aria-label="Later day">&#8250;</button>` +
+      `<button type="button" class="share" data-act="copy">Copy link</button>` +
+    `</span></div>` +
+    (tot.n
+      ? `<div class="totals">` + fig.map(([v, lab]) => `<div><b>${v}</b><span>${lab}</span></div>`).join("") + `</div>`
+      : `<p class="note">Nothing played.</p>`) +
+    tripMap(dayView) +
+    `<div class="detail on">` +
+    (songs.length
+      ? `<h4>${songs.length === 1 ? "Song" : songs.length < 10 ? "Songs" : "Top 10 songs"}</h4><ol class="dtracks">` +
+        songs.map((r, i) =>
+          `<li data-n="${esc(r.n)}" data-s="${esc(r.s)}"><span class="n">${i + 1}</span>` +
+          plBtn(r.n, r.s, "dot") +
+          `<span class="t">${esc(r.n)}${r.s ? ` <span style="color:var(--dim)">&middot; ${esc(r.s)}</span>` : ""}</span>` +
+          `<span class="v">${fmt(r.c)}</span></li>`).join("") + `</ol>`
+      : "") +
+    (artists.length > 1
+      ? `<h4 class="next">Artists</h4><ul class="dartists">` + artists.map(r =>
+          `<li data-k="a" data-n="${esc(r.n)}" data-s="">${thumb({kind: "a", name: r.n, sub: ""})}` +
+          `<span class="nm">${esc(r.n)}</span><span class="v">${fmt(r.c)}</span></li>`).join("") + `</ul>`
+      : "") +
+    (shows.length
+      ? `<h4 class="next">Podcasts</h4><ul class="dartists">` + shows.map(r =>
+          `<li data-k="p" data-n="${esc(r.n)}" data-s="">${thumb({kind: "p", name: r.n, sub: ""})}` +
+          `<span class="nm">${esc(shortShow(r.n))}</span><span class="v">${mins(r.ms)}</span></li>`).join("") + `</ul>`
+      : "") +
+    `</div>`);
+}
+$("dayview").addEventListener("click", e => {
+  if (e.target.closest("[data-act=back]")) return goBack();
+  const cp = e.target.closest("[data-act=copy]");
+  if (cp) {
+    // The tidy address, which arrives in a message with the day's own title
+    // and picture; the one in the address bar carries neither.
+    const done = () => { cp.textContent = "Copied"; cp.classList.add("done");
+      setTimeout(() => { cp.textContent = "Copy link"; cp.classList.remove("done"); }, 1600); };
+    const url = location.origin + "/d/" + dayView;
+    if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, () => {}); 
+    return;
+  }
+  const nav = e.target.closest("button[data-day]");
+  if (nav) {
+    // Stepping day to day is moving within one place, so it does not pile up
+    // a history entry for each press.
+    if (nav.dataset.day) { dayView = nav.dataset.day; lastSubject = subjKey(); paintHero(); writeHash(); }
+    return;
+  }
+  if (e.target.closest(".pl")) return;
+  openRow(e.target.closest("li[data-n]"));
+});
+
+// Home, for the line on the map. The middle of the Bay rather than an address.
+const HOME = D.home ? [D.home.lat, D.home.lon] : [0, 0];
+function tripMap(day){
+  const A = D.away, L = D.land;
+  if (!A || !L || !(day in A.days)) return "";
+  const idx = A.days[day], [label, lat, lon] = A.places[idx];
+  // The Pacific is the short way to Tokyo and Sydney, so for those the map is
+  // cut at Greenwich and joined at the date line instead.
+  const pacific = Math.abs(lon - HOME[1]) > 180;
+  const X = lo => ((pacific ? (lo + 360) % 360 : lo + 180) / L.step);
+  const Y = la => (L.top - la) / L.step;
+  let land = "";
+  L.rows.forEach((hex, y) => {
+    for (let c = 0; c < hex.length; c++) {
+      const v = parseInt(hex[c], 16);
+      for (let b = 0; b < 4; b++) if (v & (8 >> b)) {
+        const col = c * 4 + b;
+        const x = pacific ? (col + L.w / 2) % L.w : col;
+        land += `M${x + .5} ${y + .5}h0`;
+      }
+    }
+  });
+  const hx = X(HOME[1]), hy = Y(HOME[0]), dx = X(lon), dy = Y(lat);
+  const far = Math.hypot(dx - hx, dy - hy);
+  // Framed on the trip: a drive to Tahoe is not drawn on a map of the world.
+  // The frame holds both ends and the top of the line, with room around them,
+  // then widens to the card's shape.
+  const lift = Math.max(2.5, far * .28);
+  const mx = (hx + dx) / 2, my = (hy + dy) / 2 - lift;
+  const pad = Math.max(5, far * .22), ASPECT = 2.2;
+  let x0 = Math.min(hx, dx) - pad, x1 = Math.max(hx, dx) + pad;
+  let y0 = Math.min(hy, dy, (hy + dy) / 2 - lift / 2) - pad, y1 = Math.max(hy, dy) + pad;
+  let W = x1 - x0, H = y1 - y0;
+  if (W / H < ASPECT) { const add = H * ASPECT - W; x0 -= add / 2; W += add; }
+  else { const add = W / ASPECT - H; y0 -= add / 2; H += add; }
+  if (W > L.w) { W = L.w; x0 = 0; }
+  if (H > L.h) { H = L.h; y0 = 0; }
+  const vx = Math.max(0, Math.min(L.w - W, x0)), vy = Math.max(0, Math.min(L.h - H, y0));
+  const k = W / L.w;                       // marks stay the same size on screen
+  const R = 3958.8, rad = Math.PI / 180;
+  const a = Math.sin((lat - HOME[0]) * rad / 2) ** 2 +
+            Math.cos(HOME[0] * rad) * Math.cos(lat * rad) * Math.sin((lon - HOME[1]) * rad / 2) ** 2;
+  const miles = Math.round(2 * R * Math.asin(Math.sqrt(a)) / 10) * 10;
+  // How long the stay was, counted from the days either side.
+  const step = (d, n) => { const x = dateOf(d); x.setDate(x.getDate() + n); return isoOf(x); };
+  let from = day, to = day;
+  while (A.days[step(from, -1)] === idx) from = step(from, -1);
+  while (A.days[step(to, 1)] === idx) to = step(to, 1);
+  const len = Math.round((dateOf(to) - dateOf(from)) / 86400000) + 1;
+  const nth = Math.round((dateOf(day) - dateOf(from)) / 86400000) + 1;
+  return `<div class="trip">
+    <svg viewBox="${vx.toFixed(2)} ${vy.toFixed(2)} ${W.toFixed(2)} ${H.toFixed(2)}" role="img" aria-label="Map: ${esc(label)}">
+      <path class="land" d="${land}" stroke-width="${(.34 + .3 * k).toFixed(2)}"/>
+      <path class="arc" pathLength="1" d="M${hx} ${hy}Q${mx} ${my} ${dx} ${dy}" stroke-width="${(.9 * k).toFixed(2)}"/>
+      <circle class="home" cx="${hx}" cy="${hy}" r="${(1.3 * k).toFixed(2)}" stroke-width="${(.6 * k).toFixed(2)}"/>
+      <circle class="ring" cx="${dx}" cy="${dy}" r="${(1.6 * k).toFixed(2)}" stroke-width="${(.5 * k).toFixed(2)}"/>
+      <circle class="dest" cx="${dx}" cy="${dy}" r="${(1.6 * k).toFixed(2)}"/>
+    </svg>
+    <div class="where"><b>${esc(label)}</b>
+      <span><b>${fmt(miles)}</b> miles from ${HOMELBL}</span>
+      ${len > 1 ? `<span>Day <b>${nth}</b> of <b>${len}</b></span>` : ""}</div>
+  </div>`;
+}
+
+/* ---- every day ---------------------------------------------------------
+   A block of weeks for each year, a square for each day, brighter the more was
+   played. Amber is a day away from the Bay Area. Tap a square for its page. */
+function paintCal(){
+  const el = $("cal");
+  if (!ready || !el) return;
+  let per = {};
+  try {
+    for (const r of run(`SELECT p.day d, COUNT(*) n FROM plays p
+                          WHERE p.is_kid=0 AND p.is_ambient=0 GROUP BY p.day`)) per[r.d] = r.n;
+  } catch (e) { console.error(e); return; }
+  const vals = Object.values(per).sort((a, b) => a - b);
+  const q = f => vals[Math.min(vals.length - 1, Math.floor(vals.length * f))];
+  const cut = [q(.25), q(.5), q(.8)];
+  const level = n => !n ? 0 : n <= cut[0] ? 1 : n <= cut[1] ? 2 : n <= cut[2] ? 3 : 4;
+  const away = (D.away && D.away.days) || {};
+  const phone = PHONE();
+  const years = YRS.map(y => {
+    let cells = [], total = 0, active = 0;
+    const jan1 = new Date(y, 0, 1);
+    for (let i = 0; i < (jan1.getDay() + 6) % 7; i++) cells.push(`<i class="x"></i>`);
+    for (const d = new Date(y, 0, 1); d.getFullYear() === y; d.setDate(d.getDate() + 1)) {
+      const iso = isoOf(d);
+      if (iso < D.meta.first || iso > D.meta.last) { cells.push(`<i class="x"></i>`); continue; }
+      const n = per[iso] || 0; total += n; if (n) active++;
+      cells.push(`<i data-d="${iso}" data-n="${n}" class="l${level(n)}${iso in away ? " a" : ""}"></i>`);
+    }
+    // A year across a phone makes each day 5px, too small to tap, so it is
+    // cut into two halves of 27 weeks there.
+    const HALF = 27 * 7;
+    while (phone && cells.length < HALF * 2) cells.push(`<i class="x"></i>`);
+    const grids = phone
+      ? `<div class="cg half">${cells.slice(0, HALF).join("")}</div><div class="cg half">${cells.slice(HALF).join("")}</div>`
+      : `<div class="cg">${cells.join("")}</div>`;
+    return `<div class="cy"><h4>${y}<span>${fmt(total)} plays on ${fmt(active)} days</span></h4>` +
+           grids + `</div>`;
+  }).join("");
+  el.innerHTML =
+    `<div class="calread" id="calread"><b>${fmt(vals.length)}</b> days with something playing</div>` +
+    `<div class="callegend">Less <i style="background:#262626"></i><i style="background:#17472a"></i>` +
+    `<i style="background:#1a7a3c"></i><i style="background:#1db954"></i><i style="background:#7df0a4"></i> More` +
+    `<span class="gap"></span><i style="background:#e09a1f"></i> Away from ${HOMELBL}</div>` +
+    `<div class="calyears">${years}</div>`;
+  // The banner shows the last full year, so it is a picture of what is behind it.
+  const by = YRS.filter(y => `${y}-12-31` <= D.meta.last).pop() || YRS[YRS.length - 1];
+  let strip = "";
+  for (const d = new Date(by, 0, 1); d.getFullYear() === by; d.setDate(d.getDate() + 1)) {
+    const iso = isoOf(d);
+    strip += `<i class="l${level(per[iso] || 0)}${iso in away ? " a" : ""}"></i>`;
+  }
+  $("calstrip").innerHTML = strip;
+  $("calsub").textContent = `${fmt(vals.length)} days, ${fmt(Object.keys(away).length)} away`;
+}
+$("cal").addEventListener("click", e => {
+  const c = e.target.closest("i[data-d]"); if (c) openDay(c.dataset.d);
+});
+// What a square is, before committing to it: a mouse reads it on the way past.
+$("cal").addEventListener("mouseover", e => {
+  const c = e.target.closest("i[data-d]"), out = $("calread"); if (!c || !out) return;
+  const place = D.away && c.dataset.d in D.away.days ? " in " + esc(D.away.places[D.away.days[c.dataset.d]][0]) : "";
+  out.innerHTML = `${longDay(c.dataset.d)}: <b>${fmt(+c.dataset.n)}</b> ${+c.dataset.n === 1 ? "play" : "plays"}${place}`;
+});
+
+/* ---- the year each artist arrived --------------------------------------- */
+function discoveries(){
+  // The first year of the data is left out: everyone in it is new by definition.
+  // Three a year whatever their size, so a thin year or the current one still has a row.
+  const all = ROWS.filter(r => r.kind === "a" && r.minePlays >= 20 && r.first
+                            && +r.first.slice(0, 4) > YRS[0]);
+  const big = all.filter(r => r.minePlays >= 100);
+  if (!all.length) return "";
+  const rows = YRS.map(y => [y, all.filter(r => +r.first.slice(0, 4) === y)
+    .sort((a, b) => b.minePlays - a.minePlays).slice(0, 3)]).filter(([, l]) => l.length);
+  return `<div class="panel find"><h3>Discoveries by year</h3>` +
+    `<div class="claim"><b>${fmt(big.length)}</b> artists first played since ${YRS[1]} and played 100+ times.</div>` +
+    `<ol class="disc">` + rows.map(([y, l]) =>
+      `<li><span class="yr">${y}</span><span class="who">` + l.map(r =>
+        `<span class="click" data-k="a" data-n="${esc(r.name)}">${esc(r.name)}</span>`).join(` <i>\u00b7</i> `) +
+      `</span></li>`).join("") + `</ol></div>`;
+}
+
+/* ---- when the music was made -------------------------------------------- */
+const DECS = [[0, "Before 1970", "#7b5ea7"], [1970, "1970s", "#8f7be0"], [1980, "1980s", "#5b8def"],
+              [1990, "1990s", "#39b8c9"], [2000, "2000s", "#2fbf8f"], [2010, "2010s", "#1db954"],
+              [2020, "2020s", "#c8f7a0"]];
+function decades(){
+  if (!ready) return "";
+  let rows = [];
+  try {
+    rows = run(`SELECT CAST(substr(p.day,1,4) AS INTEGER) y, (p.release_year / 10) * 10 dec, COUNT(*) n
+                  FROM plays p
+                 WHERE p.is_kid=0 AND p.is_ambient=0 AND p.release_year IS NOT NULL AND p.ms >= 30000
+                 GROUP BY y, dec`);
+  } catch (e) { console.error(e); }
+  if (!rows.length) return "";
+  const slot = dec => { let i = 0; DECS.forEach(([from], k) => { if (dec >= from) i = k; }); return i; };
+  const by = {}, all = new Array(DECS.length).fill(0);
+  for (const r of rows) {
+    (by[r.y] = by[r.y] || new Array(DECS.length).fill(0))[slot(r.dec)] += r.n;
+    all[slot(r.dec)] += r.n;
+  }
+  const sum = a => a.reduce((x, y) => x + y, 0);
+  const total = sum(all), top = all.indexOf(Math.max(...all));
+  const old = sum(all.slice(0, slot(1989) + 1));
+  return `<div class="panel find"><h3>When the music was made</h3>` +
+    `<div class="claim"><b>${Math.round(100 * all[top] / total)}%</b> of what I play came out in the ` +
+    `${DECS[top][1]}; <b>${Math.round(100 * old / total)}%</b> is from before 1990.</div>` +
+    `<div class="decwrap"><div class="deck">` + DECS.map(([, lab, col]) => `<span><i style="background:${col}"></i>${lab}</span>`).join("") + `</div>` +
+    `<div class="decs">` + YRS.map(y => {
+      const v = by[y] || [], t = sum(v) || 1;
+      return `<div class="col">` + DECS.map(([, lab, col], k) =>
+        `<i style="flex:${(v[k] || 0) / t};background:${col}" title="${y}: ${Math.round(100 * (v[k] || 0) / t)}% ${lab}"></i>`).join("") + `</div>`;
+    }).join("") + `</div>` +
+    `<div class="decx">` + YRS.map(y => `<span>'${String(y).slice(2)}</span>`).join("") + `</div></div></div>`;
+}
+
+
+/* ---- leaderboards ------------------------------------------------------ */
+// "Guest \u00b7 The Rewatchables +2" is the show they appear on most, plus a
+// count of the others.
+const showOf = sub => {
+  const m = /\u00b7\s*(.+?)(?:\s*\+\d+)?$/.exec(sub || "");
+  return m ? m[1].trim() : "";
+};
+// At most three people per show on the board. The Rewatchables put seven of
+// its regulars and guests into a list of ten, and the Bill Simmons Podcast did
+// the same with its guests further down. The rest are still searchable.
+const PER_SHOW = 3;
+function capPerShow(list){
+  const seen = {};
+  return list.filter(x => {
+    const s = showOf(x.r.sub);
+    seen[s] = (seen[s] || 0) + 1;
+    return seen[s] <= PER_SHOW;
+  });
+}
+function value(r){
+  return unit === "hours" ? lensMins(r) / 60 : lensPlays(r);
+}
+// Per-year counts are inlined whole, not split by voice, so a year is scaled by
+// the row's overall share for the current lens. Exact for the 28,000 rows that
+// belong to one voice; an approximation only for the 47 artists that are mixed.
+function boardValue(r, yi){
+  if (yi === null) return value(r);
+  const share = r.plays ? lensPlays(r) / r.plays : 0;
+  const n = (r.years[yi] || 0) * share;
+  return unit === "hours" ? n * (r.mins/60) / Math.max(1, r.plays) : n;
+}
+// Ranked bars are drawn on a root scale, not a straight ratio. Straight, one
+// runaway leader (Taylor Swift at six times the next artist, Bill Simmons at
+// twenty times the next person) left everyone below a sliver; a plain stack
+// rank would throw away how far apart they are. The 0.35 power keeps the
+// order and some of the distance, and leaves the leader a full bar.
+const RANK_POW = 0.35;
+const rankPct = (v, max) => (Math.pow(Math.max(0, v) / (max || 1), RANK_POW) * 100).toFixed(1);
+function renderBoards(){
+  const yi = boardYear === null ? null : boardYear - Y0;
+
+  paintBoardMore();
+  document.querySelectorAll(".col .u, .band .u").forEach(el =>
+    el.textContent = unit === "hours" ? "hours" : "plays");
+
+  const num = v => unit === "hours" ? fmt1(v) : fmt(Math.round(v));
+  const pick = k => {
+    const list = ROWS.filter(r => r.kind === k && visible(r))
+      .map(r => ({r, v: boardValue(r, yi)}))
+      .filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+    return k === "g" ? capPerShow(list) : list;
+  };
+
+  // Artists and albums as pictures. A tile row shows fewer than a list does,
+  // and that is the trade: eight faces say more about sixteen years than
+  // twenty names in 12px.
+  // Exactly the columns the grid has, so a band is always full rows.
+  const cols = innerWidth >= 1000 ? 8 : innerWidth >= 700 ? 6 : 3;
+  const TILES = cols * (PHONE() ? 2 : 1);
+  for (const k of ["a", "l"]) {
+    const band = document.getElementById("band-" + k);
+    // Albums are no longer a band on the homepage. They are still a kind you
+    // can ask for, and asking for them brings the band back.
+    if (band) band.hidden = k === "l" ? kind !== "l" : (!!kind && kind !== k);
+    // Asked for on its own, a band is the whole board, so the button under it
+    // deepens it the way it deepens the lists: in full rows of tiles.
+    const list = pick(k).slice(0, kind === k ? tileRows(cols, boardStep.t) : TILES);
+    const el = $("top-" + k);
+    if (!list.length) { el.innerHTML = `<li class="sub">Nothing here.</li>`; continue; }
+    el.innerHTML = list.map((x, i) => `
+      <li data-k="${k}" data-n="${esc(x.r.name)}" data-s="${esc(x.r.sub||"")}">
+        <span class="pic">${artFor(x.r)
+          ? `<img src="${esc(artFor(x.r))}" alt="" loading="lazy" decoding="async">` : ""}</span>
+        <span class="nm">${esc(x.r.name)}</span>
+        <span class="sub">${esc(x.r.sub || "")}</span>
+        <span class="v">${num(x.v)}${i === 0
+          ? ` <em>${unit === "hours" ? "hours" : "plays"}</em>` : ""}</span>
+        <span class="tbar"><i style="width:${rankPct(x.v, list[0].v)}%"></i></span>
+      </li>`).join("");
+  }
+
+  // Songs, podcasts and people have no picture worth the room, so they stay
+  // lists. A phone gets songs alone until it asks for the rest.
+  for (const k of ["t","p","g"]) {
+    const col = $("top-" + k).closest(".col");
+    if (col) col.hidden = !!kind && kind !== k;
+    const list = pick(k).slice(0, boardRows(k));
+    const el = $("top-" + k);
+    // Podcasts and people have no thumbnail, so their text and their bar start
+    // at the rank rather than being indented past a square that is not there.
+    el.classList.toggle("withart", CAN_HAVE_ART.includes(k));
+    if (!list.length) { el.innerHTML = `<li class="sub">Nothing here.</li>`; continue; }
+    const mx = list[0].v || 1;
+    el.innerHTML = list.map((x, i) => `
+      <li data-k="${k}" data-n="${esc(x.r.name)}" data-s="${esc(x.r.sub||"")}">
+        <span class="rk">${i+1}</span>
+        ${k === "t" ? thumb(x.r, "rw").replace(/<\/span>$/, plBtn(x.r.name, x.r.sub) + "</span>")
+                    : thumb(x.r, "rw")}
+        <span class="meta">
+          <span class="line">
+            <span class="nm">${esc(k === "p" ? shortShow(x.r.name) : x.r.name)}</span>
+            ${x.r.kidPlays > x.r.minePlays && lens === "all" ? '<span class="kidtag">KIDS</span>' : ""}
+            <span class="v">${num(x.v)}</span>
+          </span>
+          <span class="sub">${esc(x.r.sub || "")}${k === "t" ? " " + bedTag(x.r.name, x.r.sub) : ""}</span>
+          <span class="bar"><i style="width:${rankPct(x.v, mx)}%"></i></span>
+        </span>
+      </li>`).join("");
+    // On a phone the button belongs to the column it opens.
+    let w = col && col.querySelector(".colmore");
+    if (PHONE()) {
+      if (!w && col) { w = document.createElement("div"); w.className = "colmore"; col.append(w); }
+      const total = pick(k).length;
+      if (w) w.innerHTML = total <= BOARD_STEPS[0] ? ""
+        : `<button class="more-btn" data-col="${k}">${stepLabel(boardStep[k])}</button>`;
+    } else if (w) { w.remove(); }
+  }
+}
+function paintBoardMore(){
+  let w = document.getElementById("boardmore");
+  if (!w) {
+    w = document.createElement("div");
+    w.id = "boardmore"; w.className = "more-wrap whole";
+    document.querySelector(".cols").after(w);
+  }
+  // The shared button is the laptop's; a phone has one per column instead.
+  // On a subject's page the leaderboards are hidden, so their button goes too.
+  const tiles = kind === "a" || kind === "l";
+  w.hidden = (PHONE() && !tiles) || !!sel || !!dayView;
+  // With only a band showing, the empty lists still held their top margin.
+  document.querySelector(".cols").style.display = tiles ? "none" : "";
+  const cols = innerWidth >= 1000 ? 8 : innerWidth >= 700 ? 6 : 3, n = boardStep.t;
+  w.innerHTML = `<button class="more-btn" data-step>${!tiles || n >= BOARD_STEPS.length - 1
+    ? stepLabel(n) : `Show ${tileRows(cols, n) + 1} to ${tileRows(cols, n + 1)}`}</button>`;
+}
+
+document.addEventListener("click", e => {
+  const col = e.target.closest("[data-col]");
+  if (col) {
+    const k = col.dataset.col;
+    boardStep[k] = boardStep[k] >= BOARD_STEPS.length - 1 ? 0 : boardStep[k] + 1;
+    const was = col.getBoundingClientRect().top;
+    renderBoards();
+    const now = document.querySelector(`[data-col="${k}"]`);
+    if (now) window.scrollBy(0, now.getBoundingClientRect().top - was);
+    return;
+  }
+  if (!e.target.closest("[data-step]")) return;
+  const n = boardStep.t >= BOARD_STEPS.length - 1 ? 0 : boardStep.t + 1;
+  boardStep = {t: n, p: n, g: n};
+  renderBoards();
+});
+
+document.addEventListener("click", e => {
+  const li = e.target.closest(".tiles li[data-n]"); if (!li) return;
+  const r = ROWS.find(x => x.kind === li.dataset.k && x.name === li.dataset.n
+                        && (x.sub||"") === li.dataset.s);
+  if (r) { showInBox(r); select(r); }
+});
+
+document.querySelector(".cols").addEventListener("click", e => {
+  const li = e.target.closest("li[data-n]"); if (!li) return;
+  const r = ROWS.find(x => x.kind === li.dataset.k && x.name === li.dataset.n
+                        && (x.sub||"") === li.dataset.s);
+  if (r) { showInBox(r); select(r); }
+});
+
+/* ---- facets ------------------------------------------------------------ */
+const DOW = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const pctOf = (v, tot) => { const p = 100 * v / tot;
+  return p >= 1 ? Math.round(p) + "%" : p >= 0.1 ? p.toFixed(1) + "%" : "<0.1%"; };
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const FLAG = cc => cc.replace(/./g, c => String.fromCodePoint(127397 + c.charCodeAt()));
+const CNAME = {US:"United States", GB:"United Kingdom", AU:"Australia", IE:"Ireland",
+  IN:"India", NL:"Netherlands", JP:"Japan", HU:"Hungary", KR:"South Korea",
+  SE:"Sweden", AE:"UAE", HK:"Hong Kong", HR:"Croatia", CA:"Canada", FR:"France",
+  NO:"Norway"};
+function miniBars(el, xel, vals, labels, every){
+  const mx = Math.max(...vals, 1);
+  el.innerHTML = vals.map((v, i) =>
+    `<div class="b" style="height:${(v/mx*100).toFixed(1)}%" title="${labels[i]}: ${fmt(v)}"></div>`).join("");
+  if (xel) xel.innerHTML = labels.map((l, i) =>
+    `<span>${every && i % every ? "" : l}</span>`).join("");
+}
+// The six facet panels are markup rather than generated, so folding them is a
+// matter of which ones are allowed to be seen.
+function foldFacets(){
+  const host = document.getElementById("facets");
+  if (!host) return;
+  const panels = [...host.querySelectorAll(":scope > .panel")];
+  panels.forEach((el, i) => { el.hidden = !more.facets && i >= SHOW.facets; });
+  let w = document.getElementById("facetmore");
+  if (!w) {
+    w = document.createElement("div");
+    w.id = "facetmore"; w.className = "more-wrap whole";
+    host.after(w);
+  }
+  w.innerHTML = panels.length > SHOW.facets
+    ? moreBtn("facets", panels.length, "of these") : "";
+}
+
+function paintFacets(){
+  foldFacets();
+  const key = lens === "kids" ? "kids" : "mine";
+  const hour = lens === "all"
+    ? D.facets.hour.mine.map((v,i) => v + D.facets.hour.kids[i]) : D.facets.hour[key];
+  const dow = lens === "all"
+    ? D.facets.dow.mine.map((v,i) => v + D.facets.dow.kids[i]) : D.facets.dow[key];
+  miniBars($("clock"), $("clockx"), hour,
+           hour.map((_, h) => (h % 12 || 12) + (h < 12 ? "am" : "pm")), 3);
+  miniBars($("week"), $("weekx"), dow, DOW);
+  const mon = lens === "all"
+    ? D.facets.month.mine.map((v,i) => v + D.facets.month.kids[i]) : D.facets.month[key];
+  miniBars($("month"), $("monthx"), mon, MON);
+
+  const col = lens === "kids" ? 2 : 1;
+  const dev = D.facets.device.map(d => [d[0], lens === "all" ? d[1]+d[2] : d[col]])
+    .filter(d => d[1] > 0).sort((a,b) => b[1]-a[1]);
+  // A device under half a percent is a phone borrowed once (Android, 258
+  // plays of 215,000), not something he listens on, so it is left off.
+  const devAll = dev.reduce((a, d) => a + d[1], 0) || 1;
+  const devShown = dev.filter(d => d[1] / devAll >= 0.005);
+  // "Echo" alone does not say whose.
+  const devName = n => esc(n === "Echo" ? "Amazon Echo" : n);
+  // To scale, with the share beside the count: this list compares amounts,
+  // where the leaderboards compare ranks.
+  const sum = rows => rows.reduce((a, r) => a + r[1], 0) || 1;
+  const shareRows = (rows, label, tot) => {
+    const mx = rows.length ? rows[0][1] : 1;
+    return rows.map(([n, v]) =>
+      `<li><span class="nm">${label(n)}</span>` +
+      `<span class="bar"><i style="width:${(v / mx * 100).toFixed(1)}%"></i></span>` +
+      `<span class="pc">${pctOf(v, tot)}</span>` +
+      `<span class="n">${fmt(v)}</span></li>`).join("");
+  };
+  $("devices").innerHTML = shareRows(devShown, devName, sum(devShown));
+
+
+}
+
+/* ---- controls ---------------------------------------------------------- */
+// Two settings that are one-of-N and rarely changed. As five buttons they
+// occupied the top of the chart and read as the loudest thing on the page.
+function picker(host, items, get, set){
+  host.innerHTML = items.map(([v, l]) =>
+    `<option value="${v}">${l}</option>`).join("");
+  const sync = () => { host.value = String(get()); };
+  host.addEventListener("change", () => { set(host.value); sync(); redraw(); });
+  sync();
+  return sync;
+}
+
+function chips(host, items, get, set){
+  host.innerHTML = items.map(([v, l, cls]) =>
+    `<button class="chip ${cls||""}" data-v="${v}">${l}</button>`).join("");
+  const sync = () => host.querySelectorAll(".chip").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.v === String(get()))));
+  host.addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    set(b.dataset.v); sync(); redraw();
+  });
+  sync();
+  return sync;
+}
+// How much of each section is shown before asking. The page was 6,400px on a
+// laptop and roughly fourteen screens on a phone, where every grid collapses to
+// one column. Nobody scrolls fourteen screens of a page they did not come to
+// read, so each section shows its best few and offers the rest.
+// A phone stacks every grid into one column, so the same counts cost four
+// times the scroll. It gets the best two of each instead.
+const PHONE = () => innerWidth < 700;
+const SHOW = PHONE()
+  ? {finds: 2, facets: 2}
+  : {finds: 4, facets: 3};
+
+// The leaderboards open at ten and go to twenty, then to a hundred. Six was a
+// number I picked to make the page shorter rather than one anybody asked for.
+// Ten, then the next ten, then the rest to fifty. "Show all 20" did not say
+// what you would get that you did not already have.
+const BOARD_STEPS = [10, 20, 50];
+// One button moves all three columns on a laptop, where they sit side by side
+// and move together anyway. On a phone they are stacked, so opening songs used
+// to drag podcasts and people down the page with it; there each column has its
+// own button and its own depth.
+let boardStep = {t: 0, p: 0, g: 0};
+const boardRows = k => BOARD_STEPS[boardStep[k] || 0];
+const stepLabel = n => n >= BOARD_STEPS.length - 1
+  ? "Show fewer"
+  : `Show ${BOARD_STEPS[n] + 1} to ${BOARD_STEPS[n + 1]}`;
+// Tiles come in full rows, so each step is rounded up to one.
+const tileRows = (cols, n) => Math.ceil(BOARD_STEPS[n] / cols) * cols;
+const more = {finds: false, board: false, facets: false};
+
+// One verb. It said "See top 20", "Show all 12 findings" and "Show all 6 of
+// these" in three places on one page.
+function moreBtn(key, n, what){
+  return `<button class="more-btn" data-more="${key}">` +
+         (more[key] ? "Show less" : `Show all ${n}`) + `</button>`;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-more]"); if (!b) return;
+  const k = b.dataset.more;
+  // Collapsing takes thousands of pixels out from above the fold, so the page
+  // landed somewhere else entirely and you had to find your place again. The
+  // button is put back under the cursor that just pressed it.
+  const was = b.getBoundingClientRect().top;
+  more[k] = !more[k];
+  if (k === "finds") paintFindings();
+  else if (k === "board") renderBoards();
+  else paintFacets();
+  const now = document.querySelector(`[data-more="${k}"]`);
+  if (now) window.scrollBy(0, now.getBoundingClientRect().top - was);
+});
+
+let syncYear;
+
+/* ---- the URL ------------------------------------------------------------
+   Everything selectable gets an address. The site had exactly one, so nothing
+   on it could be sent to anybody: no artist, no song, no year, no trip. A name
+   travels as itself with spaces written as +, which is unambiguous because a
+   literal + encodes as %2B. */
+const slug = s => encodeURIComponent(String(s == null ? "" : s)).replace(/%20/g, "+");
+const unslug = s => decodeURIComponent(String(s).replace(/\+/g, "%20"));
+
+let hashLock = false;      // set while we are the ones writing it
+let pendingHash = null;   // a link to a track that is not in the inlined rows
+
+function writeHash(){
+  const parts = [];
+  if (dayView) parts.push(...(dayView === ALLDAYS ? ["d"] : ["d", dayView]));
+  else if (sel) parts.push(sel.kind, slug(sel.name), ...(sel.sub ? [slug(sel.sub)] : []));
+  else if (boardYear !== null) parts.push("y", String(boardYear));
+  const q = [];
+  if (lens !== "mine") q.push("lens=" + lens);
+  if (unit !== "plays") q.push("unit=" + unit);
+  if (kind) q.push("kind=" + kind);
+  if (sel && boardYear !== null) q.push("year=" + boardYear);
+  const h = (parts.length ? "#/" + parts.join("/") : "#/") + (q.length ? "?" + q.join("&") : "");
+  if (h === location.hash || (h === "#/" && !location.hash)) return;
+  hashLock = true;
+  // A new subject is a place you can come back from, so it gets a history
+  // entry. Changing a lens or a unit is an adjustment to where you already
+  // are, so it replaces. Otherwise Back walks through every chip you pressed.
+  const newSubject = subjKey() !== lastSubject;
+  lastSubject = subjKey();
+  // The count is how many steps Back can take without leaving the site.
+  const d = (history.state && history.state.d) || 0;
+  if (newSubject) history.pushState({d: d + 1}, "", h);
+  else history.replaceState(history.state, "", h);
+  document.title = titleFor();
+  setTimeout(() => hashLock = false, 0);
+}
+let lastSubject = "";
+const subjKey = () => dayView ? "d\u0000" + dayView : keyOf(sel);
+
+// The tab, and anything that reads a page's title, should say what is on it.
+function titleFor(){
+  if (dayView === ALLDAYS) return "Every day · Listening";
+  if (dayView) return `${longDay(dayView)} · Listening`;
+  if (sel) return `${sel.name}${sel.sub && SUBKINDS.includes(sel.kind) ? " — " + sel.sub : ""} · Listening`;
+  if (boardYear !== null) return `${boardYear} · Listening`;
+  return "Listening History";
+}
+
+function readHash(){
+  const raw = location.hash.replace(/^#\/?/, "");
+  if (!raw) return {};
+  const [path, query] = raw.split("?");
+  const seg = path ? path.split("/").filter(Boolean) : [];
+  const q = Object.fromEntries((query || "").split("&").filter(Boolean)
+    .map(kv => kv.split("=").map(decodeURIComponent)));
+  return {seg, q};
+}
+
+// Applied once on load and again on every back/forward. Anything the hash does
+// not mention keeps its default rather than whatever the last click left.
+function applyHash(){
+  const {seg = [], q = {}} = readHash();
+  lens = ["mine","kids","all"].includes(q.lens) ? q.lens : "mine";
+  unit = q.unit === "hours" ? "hours" : "plays";
+  kind = ["t","a","l","p","g","e"].includes(q.kind) ? q.kind : "";
+  boardYear = null;
+  sel = null;
+  dayView = null;
+  if (seg[0] === "d" && !seg[1]) {
+    dayView = ALLDAYS;
+  } else if (seg[0] === "d" && /^\d{4}-\d\d-\d\d$/.test(seg[1] || "")) {
+    dayView = seg[1];
+  } else if (seg[0] === "y" && /^\d{4}$/.test(seg[1] || "")) {
+    boardYear = +seg[1];
+  } else if (["t","a","l","p","g","e"].includes(seg[0]) && seg[1]) {
+    const name = unslug(seg[1]), sub = seg[2] ? unslug(seg[2]) : "";
+    sel = ROWS.find(r => r.kind === seg[0] && r.name === name
+                      && (sub ? (r.sub || "") === sub : true)) || null;
+    // 31,480 tracks are only in the database, and search finds them, so a link
+    // to one is a link the page could hand out and then fail to open. Held
+    // until the database is up, then resolved there.
+    pendingHash = sel ? null : (["t", "e"].includes(seg[0]) ? {kind: seg[0], name, sub} : null);
+    if (q.year && /^\d{4}$/.test(q.year)) boardYear = +q.year;
+  }
+  showInBox(sel);
+  document.querySelectorAll(".grp").forEach(g => {
+    g.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", "false"));
+  });
+  syncAll();
+}
+
+let syncAll = () => {};
+
+// pushState means Back arrives as popstate; the hash also changes, so both can
+// fire. Whichever gets there first does the work and the other finds nothing.
+addEventListener("popstate", () => { if (!hashLock) applyFromUrl(); });
+// A song that is only in the database: opened from the address once the
+// database is up, whether the address came with the page or from a tap.
+function openPending(){
+  if (!pendingHash || !ready) return;
+  {
+  // Exact name first. Going through the search would work most of the time,
+  // but its candidate query stops at 300 rows, so a common title could be
+  // outside it and a link the page itself handed out would fail to open.
+  let found = null;
+  try {
+    // Grouped by year as well as track: a row whose years array stays zero
+    // reads as "0 years running", peaks in 2011 and spans one year, so the
+    // path added to make long-tail links work would open them wrong.
+    const hit = run(`SELECT t.name n, ifnull(a.name,'') s,
+                            substr(p.day,1,4) y, COUNT(*) c,
+                            MIN(p.day) f, MAX(p.day) l, SUM(p.is_skip) sk,
+                            SUM(p.ms) ms
+                       FROM plays p ${pendingHash.kind === "e"
+                         ? `JOIN episodes t ON t.id = p.episode_id
+                            LEFT JOIN shows a ON a.id = t.show_id`
+                         : `JOIN tracks t ON t.id = p.track_id
+                            LEFT JOIN artists a ON a.id = t.artist_id`}
+                      WHERE t.name = ? AND ifnull(a.name,'') = ?
+                        AND p.is_kid=0 AND p.is_ambient=0
+                      GROUP BY t.id, y ORDER BY y`,
+                    [pendingHash.name, pendingHash.sub || ""]);
+    if (hit.length) {
+      const years = new Array(YRS.length).fill(0);
+      let c = 0, ms = 0, sk = 0;
+      for (const row of hit) {
+        const yi = +row.y - Y0;
+        if (yi >= 0 && yi < YRS.length) years[yi] += row.c;
+        c += row.c; ms += row.ms; sk += row.sk;
+      }
+      found = {
+        kind: pendingHash.kind || "t", name: hit[0].n, sub: hit[0].s, plays: c,
+        mins: Math.round(ms / 60000), years,
+        first: hit.reduce((a, r) => r.f < a ? r.f : a, hit[0].f),
+        last: hit.reduce((a, r) => r.l > a ? r.l : a, hit[0].l),
+        skip: +(100 * sk / c).toFixed(1),
+        kidPlays: 0, kidMins: 0, ambPlays: 0, ambMins: 0,
+        minePlays: c, mineMins: Math.round(ms / 60000),
+        hay: (hit[0].n + " " + hit[0].s).toLowerCase()};
+    }
+  } catch (e) { console.error(e); }
+  if (!found) found = searchDb(pendingHash.name.toLowerCase(), new Set())
+    .find(r => r.kind === (pendingHash.kind || "t") && r.name === pendingHash.name
+            && (!pendingHash.sub || r.sub === pendingHash.sub)) || null;
+  pendingHash = null;
+  if (found) { showInBox(found); select(found); }
+}
+}
+addEventListener("hashchange", () => { if (!hashLock) { applyFromUrl(); openPending(); } });
+
+function applyFromUrl(){
+  const before = subjKey() + "|" + boardYear + "|" + lens + "|" + unit + "|" + kind;
+  applyHash();
+  if (subjKey() + "|" + boardYear + "|" + lens + "|" + unit + "|" + kind === before) return;
+  lastSubject = subjKey();
+  document.title = titleFor();
+  if (sel) { monthly = null; loadMonthly(sel); }
+  buildBars();
+  paintHero(); paintChart(); renderBoards(); paintFacets();
+  if (sel) refreshSubject(sel);
+  else { $("subjectfinds").hidden = true; $("subjectfinds").innerHTML = ""; }
+  closeRes();
+  const top = sel ? 0 : dayView === ALLDAYS ? calFrom : dayView ? 0 : cameFrom;
+  scrollTo({top, behavior: "auto"});
+  // The browser puts back its own idea of where this entry was, after ours.
+  if (dayView === ALLDAYS) requestAnimationFrame(() => scrollTo({top, behavior: "auto"}));
+}
+
+function redraw(){
+  // A subject's name in the box is not a search, so there is nothing to list.
+  if (boxIsSubject) closeRes(); else { hits = search(sBox.value); renderRes(); }
+  // The monthly query is lens-filtered and unit-dependent, so a cached result
+  // from the previous setting would be drawn against the wrong control.
+  if (sel) { monthly = null; loadMonthly(sel); }
+  paintHero(); paintChart(); renderBoards(); paintFacets();
+  writeHash();
+}
+picker($("grain"), [["month","Monthly"],["year","Yearly"]],
+       () => grain || (innerWidth < 700 ? "year" : "month"),
+       v => { grain = v; buildBars(); });
+
+const syncLens = picker($("lens"), [["mine","Just me"],["kids","Just the kids"],["all","Everyone"]],
+      () => lens, v => { lens = v; if (sel && !visible(sel)) sel = null; });
+picker($("kinds"), [["","Everything"],["t","Songs"],["a","Artists"],["l","Albums"],
+                    ["p","Podcasts"],["g","People"]], () => kind, v => kind = v);
+const syncUnit = picker($("units"), [["plays","Plays"],["hours","Hours"]], () => unit, v => unit = v);
+syncYear = picker($("years"),
+      [["all","All time"]].concat(YRS.map(y => [String(y), String(y)])),
+      () => boardYear === null ? "all" : String(boardYear),
+      v => boardYear = v === "all" ? null : +v);
+
+// One call that puts every control back in step with the state, used after the
+// URL has set the state rather than a click.
+// Every control on the page is a picker now, so syncing is four assignments.
+syncAll = () => {
+  // A person is parsed out of episode titles, so there are no months to show.
+  // Offering the choice and ignoring it is worse than not offering it.
+  // A person has no months at all; any other subject has none YET. Offering
+  // the choice and answering it with a flat spread is worse than waiting.
+  // A person's months do not exist and never will, so the control goes rather
+  // than sitting there greyed out with a caption underneath explaining itself.
+  // Any other subject's months are merely late, so the control stays put and
+  // waits -- hiding and restoring it would be the reflow this page just lost.
+  const never = !!sel && sel.kind === "g";
+  const noMonths = never || (!!sel && !monthly);
+  $("grain").hidden = never;
+  $("grain").disabled = noMonths;
+  $("grain").value = noMonths ? "year"
+    : grain || (sel ? "year" : innerWidth < 700 ? "year" : "month");
+  $("lens").value = lens;
+  $("units").value = unit;
+  $("kinds").value = kind;
+  $("years").value = boardYear === null ? "all" : String(boardYear);
+};
+
+/* ---- the database, and the question box -------------------------------- */
+// Loaded after first paint, never before it: the page is useful in a moment and
+// gets stronger a second later, rather than showing nothing for two seconds.
+let SQL = null, db = null, ready = false;
+const CDN = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/";
+function loadScript(src){
+  return new Promise((ok, no) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = ok; s.onerror = () => no(new Error("could not load " + src));
+    document.head.appendChild(s);
+  });
+}
+// The status line is gone from the page; this keeps the call sites honest
+// rather than leaving them writing into an element that no longer exists.
+function setState(){}
+
+// 27 MB through the HTTP cache is a 27 MB download again the moment the
+// browser decides it needs the room, and large entries are the first it
+// evicts. Cache Storage is asked for explicitly and keeps it, so opening the
+// page a second time is instant rather than a minute of waiting. Keyed by the
+// same build stamp as the url, and every older build is dropped on the way
+// past, so the cache holds one database rather than one per publish.
+async function fetchDb(url){
+  const abs = new URL(url, location.href).href;
+  let store = null;
+  try { store = await caches.open("listening-db"); } catch (e) { store = null; }
+  if (store) {
+    const hit = await store.match(abs);
+    if (hit) return hit.arrayBuffer();
+  }
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("listening.db " + r.status);
+  if (store) {
+    try {
+      await store.put(abs, r.clone());
+      for (const k of await store.keys()) if (k.url !== abs) await store.delete(k);
+    } catch (e) { /* out of quota: the page works, it just downloads again */ }
+  }
+  return r.arrayBuffer();
+}
+
+async function boot(){
+  try {
+    setState("loading the database…");
+    const [sqlJs, buf] = await Promise.all([
+      // sql.js ships a UMD bundle that assigns window.initSqlJs. It is not an
+      // ES module, so import() would resolve without defining anything.
+      loadScript(CDN + "sql-wasm.js").then(() => window.initSqlJs(
+        {locateFile: f => CDN + f})),
+      // The file is cached for a week, which is right for 27 MB that rarely
+      // changes and wrong the day it does: a returning visitor kept the old one
+      // and the page read it as though it were current. Stamped with the build
+      // time, so a new database is a new url and an unchanged one still comes
+      // out of the cache.
+      fetchDb("listening.db?v=" + encodeURIComponent(D.meta.built))
+    ]);
+    SQL = sqlJs;
+    db = new SQL.Database(new Uint8Array(buf));
+    ready = true;
+    setState(`ready — ${fmt(D.stats.plays)} plays, answered here in the browser`, true);
+    loadArt();
+    // The lists were drawn before the file arrived, so they are drawn again
+    // now that there are pictures to put in them.
+    if (hasArt) { renderBoards(); paintHero(); }
+    paintFindings();
+    paintCal();
+    paintDay();
+    openPending();
+    if (sel) { loadMonthly(sel); refreshSubject(sel); }
+  } catch (e) {
+    // Saying nothing left a page that looked complete while quietly missing
+    // the long tail of tracks and every question on it.
+    const el = $("dberr");
+    el.innerHTML = "The database didn't load, so search covers the most played " +
+      "only and the questions are off. " +
+      '<button type="button" id="dbretry">Try again</button>';
+    el.hidden = false;
+    $("dbretry").addEventListener("click", () => { el.hidden = true; boot(); });
+    console.error(e);
+  }
+}
+
+function run(sql, params){
+  const st = db.prepare(sql);
+  if (params) st.bind(params);
+  const rows = [];
+  while (st.step()) rows.push(st.getAsObject());
+  st.free();
+  return rows;
+}
+
+// The monthly shape of whatever is selected. Yearly counts are inlined for every
+// entity; monthly for 45,855 tracks would not be worth the payload, so it is
+// fetched on demand and the chart sharpens when it lands.
+// Everything about the subject that needs the database, kept apart from the
+// monthly chart. It used to hang off loadMonthly, which returns early for a
+// person because there is no monthly query to run for one, so selecting anybody
+// in Top People produced no detail at all.
+function refreshSubject(r){
+  if (!ready || !r) return;
+  loadFacts(r);
+  // The figures need the day count and the catalogue, which only arrive here.
+  paintHero();
+  paintDetail();
+  paintSubjectFindings();
+}
+
+function loadMonthly(r){
+  if (!ready || !r) return;
+  const val = unit === "hours" ? "SUM(p.ms)/3600000.0" : "COUNT(*)";
+  // The lens applies here too. Without it, picking an artist while the
+  // children are set aside charted their plays back in.
+  const lensWhere = lens === "all" ? ""
+    : lens === "kids" ? " AND p.is_kid=1 AND p.is_ambient=0"
+    : " AND p.is_kid=0 AND p.is_ambient=0";
+  const q = {
+    t: `SELECT substr(p.day,1,7) m, ${val} v FROM plays p JOIN tracks t ON t.id=p.track_id
+        LEFT JOIN artists a ON a.id=t.artist_id
+        WHERE t.name=? AND ifnull(a.name,'')=?${lensWhere} GROUP BY m`,
+    a: `SELECT substr(p.day,1,7) m, ${val} v FROM plays p JOIN artists a ON a.id=p.artist_id
+        WHERE a.name=?${lensWhere} GROUP BY m`,
+    p: `SELECT substr(p.day,1,7) m, ${val} v FROM plays p JOIN shows s ON s.id=p.show_id
+        WHERE s.name=?${lensWhere} GROUP BY m`,
+    e: `SELECT substr(p.day,1,7) m, ${val} v FROM plays p
+        JOIN episodes ep ON ep.id=p.episode_id JOIN shows s ON s.id=ep.show_id
+        WHERE ep.name=? AND s.name=?${lensWhere} GROUP BY m`,
+    l: `SELECT substr(p.day,1,7) m, ${val} v FROM plays p JOIN tracks t ON t.id=p.track_id
+        LEFT JOIN artists a ON a.id=t.artist_id
+        WHERE t.album=? AND ifnull(a.name,'')=?${lensWhere} GROUP BY m`,
+  }[r.kind];
+  if (!q) return;                       // people are parsed from titles, not joined
+  try {
+    const rows = run(q, ["t", "l", "e"].includes(r.kind)
+      ? [r.name, r.sub || ""] : [r.name]);
+    const out = new Array(NM).fill(0);
+    const at = Object.fromEntries(M.map((m, i) => [m, i]));
+    for (const row of rows) if (row.m in at) out[at[row.m]] = row.v;
+    monthly = out;
+    // Monthly was offered as disabled until the months existed; now they do,
+    // so the control has to be told. Without this the choice stayed greyed out
+    // for the rest of the visit.
+    paintChart(); syncAll();
+  } catch (e) { console.error(e); }
+}
+
+
+/* ---- go ---------------------------------------------------------------- */
+// Dates on the page are "Feb 2, 2020". The footer alone spells the month out.
+const footDate = d => { const [y, m, dd] = d.split("-");
+  return `${MONTHS[+m - 1]} ${+dd}, ${y}`; };
+$("foot").textContent = "Spotify listening data accurate from " +
+  footDate(D.meta.first) + " to " + footDate(D.meta.last);
+
+// Rotating a phone crosses the threshold, so the bars are rebuilt rather than
+// left as sixteen wide bars on a landscape screen.
+let wasByYear = byYear();
+let wasCols = innerWidth >= 1000 ? 8 : innerWidth >= 700 ? 6 : 3;
+addEventListener("resize", () => {
+  const cols = innerWidth >= 1000 ? 8 : innerWidth >= 700 ? 6 : 3;
+  if (cols !== wasCols) { wasCols = cols; renderBoards(); }
+  if (byYear() === wasByYear) return;
+  wasByYear = byYear();
+  buildBars(); paintChart();
+});
+
+paintFindings();
+applyHash();
+// A search started on the Seasons page arrives as #/?s=..., and carries on
+// here with the box focused, so typing continues where it began.
+{
+  const s0 = (readHash().q || {}).s;
+  if (s0) {
+    sBox.value = s0;
+    sBox.dispatchEvent(new Event("input"));
+    sBox.focus();
+    sBox.setSelectionRange(s0.length, s0.length);
+  }
+}
+// After applyHash, not before it: the bars are windowed to the selection, and
+// on a direct link the selection does not exist until the hash is read. Built
+// first, the chart had 182 cells holding 78 values and the bars bunched into
+// the left third under an axis that ran the whole sixteen years.
+buildBars();
+lastSubject = keyOf(sel);
+document.title = titleFor();
+// The box carries the selection's name so it reads as the current subject, but
+// arriving on a link is not someone typing, so the result list stays shut.
+paintHero(); paintChart(); renderBoards(); paintFacets();
+closeRes();
+// Arriving on a subject link starts at the top of the document. scrollIntoView
+// put the hero at the top of the viewport, which is under the fixed header, so
+// the title and the back button were cut in half.
+boot();
+})();
+</script>
+</body>
+</html>

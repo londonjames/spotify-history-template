@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Look at the built site on this machine:  ./serve  then open the address.
+
+Serves site/ (made by ./refresh) and stands in for the two things a host
+would otherwise do: the 30-second song clips, which a browser cannot read from
+Spotify itself, and the tidy share addresses (/a/Artist, /d/2020-02-02).
+Nothing leaves this machine except those clip lookups to Spotify.
+"""
+import http.server
+import os
+import re
+import sys
+import urllib.parse
+
+import requests
+
+SITE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site")
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+      "(KHTML, like Gecko) Version/17.0 Safari/605.1.15")
+clips = {}
+
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *a, **kw):
+        super().__init__(*a, directory=SITE, **kw)
+
+    def redirect(self, to):
+        self.send_response(302)
+        self.send_header("Location", to)
+        self.end_headers()
+
+    def do_GET(self):
+        url = urllib.parse.urlsplit(self.path)
+        if url.path == "/api/preview":
+            tid = urllib.parse.parse_qs(url.query).get("id", [""])[0]
+            if not re.fullmatch(r"[A-Za-z0-9]{22}", tid):
+                return self.send_error(400, "bad id")
+            if tid not in clips:
+                try:
+                    html = requests.get("https://open.spotify.com/embed/track/" + tid,
+                                        headers={"User-Agent": UA}, timeout=20).text
+                    m = re.search(r'"audioPreview":\{"url":"([^"]+)"', html)
+                    clips[tid] = m.group(1) if m else None
+                except Exception:
+                    clips[tid] = None
+            return self.redirect(clips[tid]) if clips[tid] else self.send_error(404, "no clip")
+        m = re.fullmatch(r"/([atlpged])/(.+)", url.path)
+        if m:
+            return self.redirect(f"/#/{m.group(1)}/{m.group(2)}")
+        if url.path == "/story.html" and not os.path.exists(os.path.join(SITE, "story.html")):
+            return self.redirect("/")
+        return super().do_GET()
+
+    def log_message(self, *a):
+        pass
+
+
+if not os.path.exists(os.path.join(SITE, "index.html")):
+    sys.exit("nothing built yet: run ./refresh first")
+print(f"http://localhost:{PORT}   (Ctrl-C to stop)")
+http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

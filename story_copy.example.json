@@ -1,0 +1,22 @@
+{
+  "S1": {
+    "title": "First years",
+    "accent": "#9aa6bd",
+    "bullets": [
+      "What you were playing",
+      "Who was on repeat",
+      "Where you were",
+      "When in the day"
+    ]
+  },
+  "S2": {
+    "title": "Later years",
+    "accent": "#3a6385",
+    "bullets": [
+      "One short line each",
+      "No full stop at the end",
+      "Always four of them",
+      "Numbers are checked against data"
+    ]
+  }
+}

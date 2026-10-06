@@ -1,0 +1,3 @@
+# Podcast shows and audiobooks you have looked at and are happy to show.
+# Add one with:  python3 review.py --keep "Show Name"
+# or clear everything still undecided:  python3 review.py --keep-all

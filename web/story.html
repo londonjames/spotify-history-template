@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Seasons of Music</title>
+<meta name="description" content="My Spotify listening in seasons: what I was playing, and what was going on in my life.">
+<!-- What a pasted link shows in WhatsApp, iMessage, Slack and the rest. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Listening">
+<meta property="og:title" content="My Seasons of Music">
+<meta property="og:description" content="My Spotify listening in seasons: what I was playing, and what was going on in my life.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="My Seasons of Music">
+<meta name="twitter:description" content="My Spotify listening in seasons: what I was playing, and what was going on in my life.">
+<!-- Mettle's mark with the letter changed, so the two sit together in a tab
+     strip and on a home screen. The SVG is rounded for the browser; the PNG is
+     a full-bleed square because iOS applies its own mask and would round it
+     twice. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/icon.svg?v2" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v2">
+<meta name="theme-color" content="#1c1c1c">
+<style>
+:root{
+  /* The same values Explore uses, to the digit. This page had its own greys
+     and a sage accent, which made two pages of one site read as two sites. */
+  --bg:#121212; --panel:#1f1f1f; --line:rgba(255,255,255,.13);
+  --ink:#e8e8e8; --dim:#b6b6b6; --faint:#949494;
+  --ui:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:'Figtree',system-ui,-apple-system,sans-serif;
+  --green:#1ed760;
+  --accent:#5ea6ff;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg);height:100%}
+/* overflow:hidden pinned the page to the viewport, which is right for a deck
+   on a laptop and wrong on a phone, where the last line of a season sat under
+   the bottom edge with no way to reach it. */
+body{color:var(--ink);font-family:var(--ui);line-height:1.5;overflow:hidden;
+     -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+@media (max-width:860px){
+  html,body{height:auto;overflow:visible}
+}
+
+/* ---- header, same 75px geometry as the rest of the site ---- */
+.hdr{position:fixed;top:0;left:0;right:0;z-index:60;padding:.75rem 0 0;
+     border-bottom:1px solid rgba(255,255,255,.1);background:var(--bg)}
+.hdr .in{max-width:1180px;margin:0 auto;padding:0 48px;display:flex;
+         align-items:center;justify-content:space-between;height:62px;
+         padding-bottom:.75rem}
+.brand{font-size:20px;font-weight:600;letter-spacing:.15em;color:var(--ink);text-decoration:none}
+/* Laid out as the main page is: the wordmark left, the search centred, and
+   on a phone the search on its own row under the wordmark. */
+.hdr .in{display:grid!important;grid-template-columns:1fr minmax(0,420px) 1fr;gap:1.5rem}
+.hdr .brand{justify-self:start}
+.search{position:relative;flex:1 1 auto;max-width:420px;min-width:0}
+.search input{width:100%;background:var(--panel);border:1px solid var(--line);
+              border-radius:8px;color:var(--ink);font-family:var(--ui);font-size:15px;
+              padding:0 14px 0 34px;height:38px}
+.search input::placeholder{color:var(--faint)}
+.search input:focus{outline:none;border-color:var(--green)}
+.search .lens{position:absolute;left:11px;top:50%;transform:translateY(-50%);
+              width:14px;height:14px;stroke:var(--faint);fill:none;stroke-width:2}
+.nav{display:flex;align-items:center;gap:1.1rem}
+.nav a{font-size:.85rem;letter-spacing:.05em;color:var(--dim);text-decoration:none;
+       white-space:nowrap}
+.nav a:hover,.nav a.on{color:var(--ink)}
+/* Three links keep you on this site and four leave it. The rule is the only
+   thing that says which is which, so it uses the existing line colour rather
+   than announcing itself. */
+.nav .sep{width:1px;align-self:stretch;background:var(--line);margin:.15rem 0}
+
+/* ---- progress: one segment per season, filling as it plays ---- */
+/* Fixed over the scrolling pane with nothing behind it, so a paragraph
+   scrolling past was struck through by the ticks. The band carries the ground
+   and fades out below it, the way the controls do at the other end. */
+.prog{position:fixed;top:var(--hdr,75px);left:0;right:0;z-index:55;display:flex;gap:3px;
+      padding:10px 48px 0;max-width:1180px;margin:0 auto;background:var(--bg)}
+.prog::after{content:"";position:absolute;left:0;right:0;top:100%;height:2.25rem;
+             pointer-events:none;
+             background:linear-gradient(to bottom,var(--bg),rgba(18,18,18,0))}
+.prog i{flex:1;height:4px;background:rgba(255,255,255,.12);border-radius:2px;
+        overflow:hidden;cursor:pointer;position:relative}
+.prog i::after{content:"";position:absolute;inset:0;width:var(--f,0%);
+               background:var(--accent);transition:width .1s linear}
+.prog i:hover{background:rgba(255,255,255,.25)}
+
+/* ---- the stage ---- */
+/* It scrolls at every width now. A season carries pictures, songs and
+   podcasts, which does not fit a laptop screen without a scroll. */
+.stage{position:fixed;inset:calc(var(--hdr,75px) + 12px) 0 0;overflow-y:auto;padding:0 48px 7rem}
+.scene{max-width:1100px;margin:0 auto}
+/* A turn takes the words and lists away at once and leaves the picture, which
+   dissolves into the next one on its own. */
+.scene.out .hero>*:not(canvas),.scene.out .grid,.scene.out .tribute{
+  opacity:0!important;transition:opacity .2s ease!important}
+
+/* Each part of a season waits out of sight and arrives when its turn comes
+   (the script adds .in). The kind of arrival goes with the kind of thing:
+   words rise, lines come in from the left, covers turn over, faces grow. */
+.rv{opacity:0;transition:opacity .6s ease,transform .75s cubic-bezier(.2,.7,.2,1)}
+.rv.up{transform:translateY(20px)}
+.rv.left{transform:translateX(-22px)}
+.rv.right{transform:translateX(26px)}
+.rv.pop{transform:scale(.55)}
+.rv.flip{transform:perspective(500px) rotateY(85deg)}
+.rv.in{opacity:1;transform:none}
+/* The year chart's columns are there from the start; their bars grow. */
+.rv.bar{opacity:1}
+.rv.bar .b i{transform:scaleY(0);transform-origin:bottom;
+             transition:transform .8s cubic-bezier(.2,.7,.2,1)}
+.rv.bar .rk{opacity:0;transition:opacity .4s ease .5s}
+.rv.bar.in .b i{transform:none}
+.rv.bar.in .rk{opacity:1}
+
+/* The hero: the season's generated picture behind the dates and the name. */
+.hero{position:relative;border-radius:14px;overflow:hidden;margin-top:1rem;
+      min-height:clamp(340px,46vh,460px);display:flex;flex-direction:column;justify-content:flex-end;
+      padding:2rem 2.25rem 1.6rem;background:#111 center/cover no-repeat}
+.hero::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(20,20,20,.92) 0%,rgba(20,20,20,.6) 45%,rgba(20,20,20,0) 85%),
+             linear-gradient(to right,rgba(20,20,20,.45),rgba(20,20,20,0) 55%)}
+.hero::before{z-index:1}
+.hero>*{position:relative;z-index:2}
+/* The moving picture sits under the shading and the words. */
+.hero>canvas.bg{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.hero>canvas.bg[hidden]{display:none}
+/* The picture is a control: tap to move on, hold to pause. Holding must not
+   select the words or raise the phone's own menu. */
+.hero{cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.num{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:rgba(255,255,255,.88);
+     margin-bottom:.9rem}
+.num,.time{text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.num b{color:var(--accent);font-weight:600}
+.time{font-family:var(--mono);font-weight:600;font-size:clamp(1.5rem,3.4vw,2.4rem);
+      letter-spacing:.02em;color:var(--accent);line-height:1.1;
+      display:flex;align-items:baseline;flex-wrap:wrap;gap:.2em .55em}
+.time .dur{font-size:.5em;color:var(--dim);font-weight:500;letter-spacing:.08em}
+h1{font-size:clamp(1.9rem,4.4vw,3.2rem);font-weight:800;letter-spacing:-.03em;
+   line-height:1.05;margin:.35rem 0 1.1rem;color:#fff}
+/* Where the season sits in the fifteen years. */
+.line{position:relative;height:6px;border-radius:3px;background:rgba(255,255,255,.16)}
+.line i{position:absolute;top:0;bottom:0;border-radius:3px;background:var(--accent);
+        transition:left .7s cubic-bezier(.2,.7,.2,1)}
+.ticks{position:relative;height:14px;margin-top:5px}
+.ticks span{position:absolute;transform:translateX(-50%);font-family:var(--mono);
+            font-size:10px;color:var(--dim)}
+
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2.25rem;margin-top:2rem}
+.lbl{font-size:12px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;
+     color:var(--dim);margin:0 0 .8rem}
+.lbl.next{margin-top:1.7rem}
+
+.collage{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;border-radius:8px;
+         overflow:hidden}
+.collage img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#2a2a2a}
+.bullets{list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+         gap:.15rem 2.5rem;margin:0 0 1.3rem;max-width:900px}
+.bullets li{position:relative;padding:.3rem 0 .3rem 1.1rem;font-size:1.12rem;
+            color:#fff;line-height:1.4;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.bullets li::before{content:"";position:absolute;left:0;top:.86rem;width:7px;height:7px;
+                    border-radius:50%;background:var(--accent)}
+.bullets b{color:#fff;font-family:var(--mono);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.55rem;margin-top:1.1rem}
+.stats div{background:var(--panel);border-radius:8px;padding:.55rem .7rem}
+.stats b{display:block;font-family:var(--mono);font-size:1.05rem;color:var(--accent);
+         font-weight:600}
+.stats span{font-size:.75rem;color:var(--faint)}
+
+.tribute{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:2.25rem;
+          margin-top:2rem}
+.tribute[hidden],.grid[hidden]{display:none}
+.yrs{display:grid;grid-template-columns:repeat(16,minmax(0,1fr));gap:4px;align-items:end;
+     height:210px}
+.yrs .c{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+        height:100%;min-width:0}
+.yrs .rk{font-size:10px;font-weight:700;border-radius:99px;padding:1px 4px;margin-bottom:4px;
+         color:var(--faint);white-space:nowrap}
+.yrs .rk.one{background:var(--green);color:#000}
+.yrs .b{display:flex;gap:1px;align-items:flex-end;width:100%;height:160px}
+.yrs .b i{flex:1;border-radius:2px 2px 0 0;min-height:1px}
+.yrs .b i.ts{background:var(--green)}
+.yrs .b i.them{background:rgba(255,255,255,.28)}
+.yrs .y{font-size:10px;color:var(--dim);margin-top:4px}
+.key{display:flex;align-items:center;gap:.4rem 1rem;flex-wrap:wrap;margin-top:.7rem;
+     font-size:.8rem;color:var(--dim)}
+.key .k{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:-.6rem}
+.key .k.ts{background:var(--green)} .key .k.them{background:rgba(255,255,255,.28)}
+.medley li.on b{color:var(--green)}
+.medley li.on .rk{color:var(--green)}
+.faces{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem .75rem}
+.faces a{text-align:center;min-width:0;color:inherit;text-decoration:none;display:block}
+.faces img,.faces .ph{width:100%;aspect-ratio:1;border-radius:50%;object-fit:cover;
+                      display:block;background:#2a2a2a}
+.faces b{display:block;font-size:13px;font-weight:500;margin-top:.45rem;
+         line-height:1.25}
+.faces span{font-family:var(--mono);font-size:12px;color:var(--faint)}
+
+.rows{list-style:none}
+.rows li{border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;
+         gap:.75rem}
+.rows li>a{display:flex;align-items:center;gap:.75rem;padding:.42rem 0;color:inherit;
+           text-decoration:none;flex:1;min-width:0}
+/* A cover with a clip behind it is a play button, and looks like one. */
+.rows .pl{position:relative;flex:none;width:44px;height:44px;border:0;padding:0;
+          background:none;cursor:pointer;border-radius:4px;overflow:hidden;display:block}
+.rows .pl::after{content:"";position:absolute;inset:0;margin:auto;width:24px;height:24px;
+  border-radius:50%;background:rgba(0,0,0,.66) center/11px no-repeat
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M7 4v16l14-8z'/%3E%3C/svg%3E");
+  transition:transform .15s,background-color .15s}
+.rows .pl:hover::after{transform:scale(1.15);background-color:rgba(0,0,0,.85)}
+.rows li.on .pl::after{background-color:var(--green);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M7 4v16l14-8z'/%3E%3C/svg%3E")}
+body:not(.paused) .rows li.on .pl::after{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M6 4h4v16H6zM14 4h4v16h-4z'/%3E%3C/svg%3E")}
+.rows li.on .m b{color:var(--green)}
+/* Three bars that move while a clip plays, beside its name. */
+.eq{display:inline-flex;align-items:flex-end;gap:2px;height:16px;flex:none}
+.eq i{width:3px;height:100%;border-radius:1px;background:var(--green);transform-origin:bottom;
+      animation:eq .9s ease-in-out infinite}
+.eq i:nth-child(2){animation-duration:.7s;animation-delay:-.3s}
+.eq i:nth-child(3){animation-duration:1.1s;animation-delay:-.55s}
+@keyframes eq{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+body.paused .eq i{animation-play-state:paused}
+.rows li>a:hover b,.faces a:hover b{color:var(--green)}
+.collage a{display:block}
+.collage a:hover img{opacity:.8}
+.rows li:last-child{border-bottom:0}
+.rows img,.rows .ph{width:44px;height:44px;border-radius:4px;object-fit:cover;flex:none;
+                    background:#2a2a2a}
+.rows .rk{font-family:var(--mono);font-size:11px;color:var(--faint);width:1rem;
+          text-align:right;flex:none}
+.rows .m{flex:1;min-width:0}
+.rows .m b{display:block;font-size:15px;font-weight:500;white-space:nowrap;
+           overflow:hidden;text-overflow:ellipsis}
+.rows .m span{font-size:13px;color:var(--faint);white-space:nowrap;overflow:hidden;
+              text-overflow:ellipsis;display:block}
+.rows .n{font-family:var(--mono);font-size:13px;color:var(--dim);flex:none}
+
+.sig{display:flex;align-items:center;gap:.75rem;background:var(--panel);
+     border-radius:10px;padding:.6rem}
+.sig img{width:56px;height:56px;border-radius:6px;object-fit:cover;flex:none}
+.sig .m{flex:1;min-width:0}
+.sig .m b{display:block;font-size:.95rem;font-weight:500;white-space:nowrap;
+          overflow:hidden;text-overflow:ellipsis}
+.sig .m span{font-size:.82rem;color:var(--faint)}
+.sig a{font-size:.78rem;color:var(--accent);text-decoration:none;flex:none;
+       border:1px solid var(--accent);border-radius:99px;padding:.3rem .7rem}
+.np{position:absolute!important;top:1rem;right:1rem;max-width:min(340px,70%);display:none;
+    align-items:center;gap:.6rem;background:rgba(0,0,0,.62);backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);border-radius:10px;padding:.45rem .7rem .45rem .45rem;z-index:2}
+.np.on{display:flex}
+.np img,.np .ph{width:40px;height:40px;border-radius:5px;object-fit:cover;flex:none;background:#2a2a2a}
+.np .m{min-width:0;flex:1}
+.np .m b{display:block;font-size:13px;font-weight:600;color:#fff;white-space:nowrap;
+         overflow:hidden;text-overflow:ellipsis}
+.np .m span{display:block;font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;
+            text-overflow:ellipsis}
+.np a{font-size:.72rem;font-weight:700;color:#000;background:var(--green);text-decoration:none;
+      border-radius:99px;padding:.25rem .6rem;flex:none}
+/* The start screen sits over the first season until it is tapped. */
+.start{position:fixed;inset:var(--hdr,75px) 0 0;z-index:70;display:flex;flex-direction:column;
+       align-items:center;justify-content:center;gap:1rem;background:rgba(18,18,18,.72);
+       backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.start[hidden]{display:none}
+.start .big{display:inline-flex;align-items:center;gap:.6rem;background:var(--green);color:#000;
+            border:0;border-radius:99px;font-family:var(--ui);font-size:1.25rem;font-weight:800;
+            padding:1rem 2rem 1rem 1.5rem;cursor:pointer;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.start .big:hover{background:#3be477;transform:scale(1.03)}
+.start .quiet{background:none;border:0;color:var(--dim);font-family:var(--ui);font-size:.95rem;
+              text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:.5rem}
+.start .quiet:hover{color:var(--ink)}
+body{font-variant-numeric:tabular-nums}
+/* Play and pause as Spotify draws them: a green disc, a black glyph. */
+#play{width:52px!important;height:52px!important;background:var(--green)!important;
+      border:0!important;color:#000!important;font-size:15px!important}
+#play:hover{transform:scale(1.05);background:#3be477!important}
+/* The speaker the way Facebook and LinkedIn draw it on a video: a white glyph
+   in a dark disc, waves when sound is on, a cross when it is muted. */
+#sound{width:46px!important;height:46px!important;background:rgba(0,0,0,.6)!important;
+       border:0!important;color:#fff!important}
+#sound:hover{background:rgba(0,0,0,.8)!important}
+.editorial{margin:-.6rem 0 1rem;font-size:.76rem;line-height:1.55;color:var(--dim);
+           padding-left:.6rem;border-left:1px solid var(--line)}
+
+/* ---- controls ---- */
+/* Reserving the bar's height only clears the LAST rows. Everywhere else in the
+   scroll a row still passes under a bar fixed over the pane, and with nothing
+   between them it reads as the list being cut off rather than continuing. The
+   scrim fades the ground up behind the bar so it is plainly a bar. */
+.ctl::before{content:"";position:absolute;left:0;right:0;bottom:0;
+             top:-3.25rem;pointer-events:none;z-index:-1;
+             background:linear-gradient(to bottom,rgba(18,18,18,0) 0%,
+                        rgba(18,18,18,.82) 42%,var(--bg) 78%)}
+.ctl{position:fixed;bottom:0;left:0;right:0;z-index:60;
+     display:flex;align-items:center;justify-content:center;gap:1.5rem;
+     padding:1.15rem 2rem 1.35rem}
+.ctl button{background:none;border:1px solid var(--line);color:var(--dim);
+            border-radius:99px;width:38px;height:38px;cursor:pointer;font-size:13px;
+            display:flex;align-items:center;justify-content:center;transition:.15s;
+            flex:none}
+/* Sound and the counter sit to the right of the three buttons, so the same
+   width is added on the left and play lands on the centre of the page. */
+@media (min-width:861px){#prev{margin-left:182px}}
+.ctl button:hover{color:var(--ink);border-color:var(--faint)}
+.ctl .count{font-family:var(--mono);font-size:11px;color:var(--faint);
+            letter-spacing:.1em;min-width:5.5rem;text-align:center}
+
+@media (max-width:1000px){
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid>div:last-child{grid-column:1/-1}
+  .faces{grid-template-columns:repeat(6,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  /* The controls are fixed to the bottom, so the scroll pane has to reserve
+     their height or the last rows sit under them. */
+  .stage{padding:0 1rem 7rem}
+  .hero{min-height:0;padding:6.5rem 1.25rem 1.2rem}
+  /* The words fill most of the picture here, so the shade has to reach the
+     top line: "Season 8 of 12" sat on bright yellow. */
+  .hero::before{background:linear-gradient(to top,rgba(20,20,20,.92) 0%,
+    rgba(20,20,20,.74) 62%,rgba(20,20,20,.3) 100%)}
+  .np{left:1rem;right:1rem;max-width:none}
+  .ctl{gap:1rem;padding-left:1rem;padding-right:1rem}
+  .ctl .count{min-width:0}
+  .hdr .in,.prog{padding-left:16px;padding-right:16px}
+  /* Under 16px, an iPhone zooms the page when the field takes focus. */
+  .search input{font-size:16px}
+  #prev,#next{width:44px;height:44px}
+  .start .quiet{min-height:44px}
+  .hdr .in{grid-template-columns:minmax(0,1fr);gap:10px;height:auto!important;
+           padding-bottom:.75rem}
+  .hdr .search{max-width:none}
+  /* min-width:0 is what actually allows the scroll -- a flex item will not
+     shrink below its content without it, and the nav would push the brand off. */
+  .nav{gap:.7rem;min-width:0;overflow-x:auto}
+  .nav a{font-size:.76rem}
+}
+@media (max-width:600px){
+  .bullets{grid-template-columns:minmax(0,1fr)}
+  h1{font-size:1.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bullets li{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .grid>div:last-child{grid-column:auto}
+  .tribute{grid-template-columns:minmax(0,1fr)}
+  .yrs{height:170px}.yrs .b{height:120px}.yrs .rk{font-size:10px;padding:1px 1px}
+  .yrs .y{font-size:10px;letter-spacing:-.03em}
+  .faces{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+/* On a laptop the whole season has to clear the control bar: the picture is
+   shorter and the covers narrower than they were, which left the third row of
+   covers under the buttons. */
+@media (min-width:1001px){
+  .hero{min-height:clamp(260px,32vh,460px)}
+  .collage{max-width:290px}
+  .faces img,.faces .ph{width:86px;margin:0 auto}
+}
+/* On a phone a season is two screens, not one long one: the picture with what
+   was happening, then the covers, songs and artists. Each fits without a
+   scroll, and the script turns from the first to the second part-way through. */
+.bhead{display:none}
+@media (max-width:600px){
+  .scene:not(.b) .grid,.scene:not(.b) .tribute{display:none}
+  .scene.b .hero{display:none}
+  .scene.b .bhead{display:block;margin-top:1rem;font-family:var(--mono);font-size:11px;
+                  letter-spacing:.12em;text-transform:uppercase;color:var(--dim);
+                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bhead b{color:var(--accent);font-weight:600}
+  .scene.b .grid,.scene.b .tribute{margin-top:.7rem;gap:.8rem;animation:faceb .45s ease}
+  .lbl{font-size:11px;margin-bottom:.4rem}
+  .collage{grid-template-columns:repeat(6,1fr)}
+  .collage a:nth-child(n+7){display:none}
+  .rows li>a{padding:3px 0;gap:.6rem}
+  .rows li{gap:.6rem}
+  .rows img,.rows .ph,.rows .pl{width:34px;height:34px}
+  .rows .pl::after{width:20px;height:20px;background-size:9px}
+  .rows .m b{font-size:14px;line-height:1.25}
+  .rows .m span{font-size:12px;line-height:1.25}
+  .faces{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.35rem 1rem}
+  .faces a{display:flex;align-items:center;gap:.5rem;text-align:left}
+  .faces img,.faces .ph{width:30px;flex:none}
+  .faces b{margin:0;flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;
+           text-overflow:ellipsis}
+  .faces span{font-size:11px;flex:none}
+  .yrs{height:150px}.yrs .b{height:104px}
+}
+/* With the browser's own bars showing, a phone has about 450px for this. */
+@media (max-width:600px) and (max-height:720px){
+  .scene.b .bhead{display:none}
+  .scene.b .grid,.scene.b .tribute{margin-top:.9rem;gap:.6rem}
+  .collage{grid-template-columns:repeat(8,1fr)}
+  .collage a:nth-child(n+7){display:block}
+  .collage a:nth-child(n+9){display:none}
+  .rows li>a{padding:1px 0}
+  .faces{gap:.2rem 1rem}
+  .faces img,.faces .ph{width:26px}
+  .ctl{padding-top:.6rem;padding-bottom:.8rem}
+}
+@keyframes faceb{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+/* The wordmark used to be dropped here because seven links would not fit
+   beside it. There are three, so it stays, and the page keeps its name. */
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<header class="hdr"><div class="in">
+  <a class="brand" href="/">LISTENING</a>
+  <!-- The same box as the main page. Typing here hands the search over to
+       it, since that page holds the data to search. -->
+  <div class="search">
+    <svg class="lens" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+    <input id="s" placeholder="Song, artist, album or podcast" autocomplete="off" spellcheck="false">
+  </div>
+  <!-- No nav here: the only other page is home, and the wordmark is that link. -->
+</div></header>
+
+<div class="prog" id="prog"></div>
+
+<div class="stage" id="stage">
+  <div class="scene" id="scene">
+    <!-- The season's picture carries the dates, the name and what was
+         happening, so the most important part is the first thing read. -->
+    <div class="hero" id="hero">
+      <canvas class="bg" id="bg" aria-hidden="true"></canvas>
+      <div class="np" id="np"></div>
+      <div class="num rv"></div>
+      <div class="time rv up" id="time"></div>
+      <h1 class="rv up" id="title"></h1>
+      <ul class="bullets" id="bullets"></ul>
+      <div class="line rv" id="line"><i></i></div>
+      <div class="ticks rv" id="ticks"></div>
+    </div>
+    <div class="bhead" id="bhead"></div>
+    <div class="grid">
+      <div>
+        <div class="lbl rv">On repeat</div>
+        <div class="collage" id="collage"></div>
+      </div>
+      <div>
+        <div class="lbl rv">Top songs</div>
+        <ol class="rows" id="songs"></ol>
+      </div>
+      <div>
+        <div class="lbl rv">Top artists</div>
+        <div class="faces" id="faces"></div>
+      </div>
+    </div>
+    <!-- The bonus page: one artist against everyone, year by year, and a
+         medley that walks through the years with her. -->
+    <div class="tribute" id="tribute" hidden>
+      <div>
+        <div class="lbl rv">My #1 artist, year by year</div>
+        <div class="yrs" id="tyears"></div>
+        <div class="key rv"><span class="k ts"></span><span id="bonuswho"></span>
+          <span class="k them"></span>Top other artist</div>
+      </div>
+      <div>
+        <div class="lbl rv">The medley</div>
+        <ol class="rows medley" id="medley"></ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="start" id="start">
+  <button class="big" id="go-sound" type="button">
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+    Play with music</button>
+  <button class="quiet" id="go-quiet" type="button">Watch without sound</button>
+</div>
+
+<div class="ctl">
+  <button id="prev" aria-label="Previous season">&#9664;</button>
+  <button id="play" aria-label="Pause">&#10073;&#10073;</button>
+  <button id="next" aria-label="Next season">&#9654;</button>
+  <button id="sound" aria-label="Mute"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z"/><path d="M16.5 12a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/><path d="M14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg></button>
+  <span class="count" id="count"></span>
+</div>
+
+<script id="payload" type="application/json">__DATA__</script>
+<script>
+(function(){
+"use strict";
+const SEASONS = JSON.parse(
+  document.getElementById("payload").textContent).phases;
+
+// Two paces. Silent, a page only has to be readable: ten seconds. With music
+// it also has to be heard, so fifteen. The bonus page plays four songs, and
+// gets six seconds for each.
+const HOLD_QUIET = 10000, HOLD_SOUND = 15000, HOLD_MEDLEY = 24000;
+// A phone shows a season as two screens, so it holds a little longer and
+// turns from the first to the second at FLIP (in the same paced seconds the
+// reveal uses).
+const two = () => matchMedia("(max-width:600px)").matches;
+const holdFor = snd => snd ? (two() ? 18000 : HOLD_SOUND) : (two() ? 13000 : HOLD_QUIET);
+const FLIP = 7.5;
+let face = 0;
+function setFace(f){
+  face = f;
+  document.getElementById("scene").classList.toggle("b", f === 1);
+  document.getElementById("stage").scrollTop = 0;
+}
+let HOLD = HOLD_SOUND;
+// `extra` is time added to the page on show when a song on it is tapped, so
+// the song is heard before the page turns.
+let extra = 0;
+const holdNow = () => ((sound && SEASONS[i].bonus) ? HOLD_MEDLEY : HOLD) + extra;
+const $ = id => document.getElementById(id);
+const calm = matchMedia("(prefers-reduced-motion:reduce)").matches;
+// One clock for everything that moves: `elapsed` is how far into the season
+// on show the page is, and it stops while paused. The page turn, the order
+// things appear in, the dates and the camera are all read from it.
+let i = 0, playing = false, t0 = 0, elapsed = 0, raf = 0;
+
+const prog = $("prog");
+prog.innerHTML = SEASONS.map((_, k) => `<i data-k="${k}"></i>`).join("");
+prog.addEventListener("click", e => {
+  const el = e.target.closest("i[data-k]"); if (el) go(+el.dataset.k);
+});
+
+const esc = v => String(v ?? "").replace(/[&<>"]/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+const img = (u, cls) => u ? `<img src="${esc(u)}" alt="" class="${cls||""}">`
+                          : `<span class="ph ${cls||""}"></span>`;
+const fmt = n => Number(n).toLocaleString();
+// Everything named on a season opens its own page on the main site, in the
+// address form that page reads: #/t/Song/Artist, #/a/Artist, #/l/Album/Artist.
+const seg = v => encodeURIComponent(v).replace(/%20/g, "+");
+const href = (kind, name, sub) => "/#/" + kind + "/" + seg(name) + (sub ? "/" + seg(sub) : "");
+// The whole run of the data, for placing a season on the line under its name.
+// It ends a little past the newest season, so the line grows with new data.
+const Y0 = Math.min(...SEASONS.map(s => (s.span || {}).y0 || 9999)),
+      Y1 = Math.max(...SEASONS.map(s => (s.span || {}).y1 || 0)) + .05;
+const TICKS = [];
+for (let y = Math.ceil(Y0), st = Y1 - Y0 > 9 ? 2 : 1; y <= Y1; y += st) TICKS.push(y);
+$("ticks").innerHTML = TICKS.map(y =>
+  `<span style="left:${((y - Y0) / (Y1 - Y0) * 100).toFixed(1)}%">${y}</span>`).join("");
+// Each season's picture, and its near-and-far map, fetched once ahead of need.
+const load = u => { if (!u) return null; const im = new Image(); im.src = u; return im; };
+const ready = im => im && im.complete && im.naturalWidth > 0;
+const failed = im => !im || (im.complete && !im.naturalWidth);
+const PICS = SEASONS.map(s => load(s.art)), DEPS = SEASONS.map(s => load(s.depth));
+
+/* ---- what appears when ---------------------------------------------------
+   A season is not put up whole. Its parts arrive in order over the first ten
+   seconds: the picture, the dates, the name, each line of what was happening,
+   then the covers, the songs and the artists. A group below the bottom of the
+   screen waits until it is scrolled to. */
+let groups = [];
+function stage(els, at, step, box){
+  els = [...els].filter(Boolean);
+  els.forEach(e => e.classList.remove("in"));
+  groups.push({els, at, step: step || 0, box: box || null, t: null, n: 0});
+}
+// The reveal is paced for fifteen seconds and squeezed for the silent ten.
+const unit = () => sound ? 1 : holdFor(false) / holdFor(true);
+const show = el => el.classList.add("in");
+function showAll(){
+  groups.forEach(g => { g.els.forEach(show); g.n = g.els.length; });
+}
+function reveal(){
+  const u = unit(), e = elapsed / 1000, vh = innerHeight;
+  for (const g of groups){
+    if (g.n >= g.els.length) continue;
+    if (g.t === null){
+      if (e < g.at * u) continue;
+      if (g.box && g.box.getBoundingClientRect().top > vh - 60) continue;
+      g.t = e;
+    }
+    while (g.n < g.els.length && e >= g.t + g.n * g.step * u) show(g.els[g.n++]);
+  }
+}
+
+// The dates are simply shown. The bar on the line under them grows to the
+// season's length as it arrives.
+let R = null;
+function setRoll(sp){
+  R = {w: -1, full: Math.max(.6, (sp.y1 - sp.y0) / (Y1 - Y0) * 100)};
+}
+function roll(){
+  if (!R) return;
+  const whole = calm || (!playing && started);
+  const p = whole ? 1 : Math.max(0, Math.min(1, (elapsed / 1000 / unit() - 1) / 1.8));
+  const w = Math.max(.6, R.full * (1 - Math.pow(1 - p, 2)));
+  if (w !== R.w){ R.w = w; $("line").firstElementChild.style.width = w.toFixed(2) + "%"; }
+}
+
+// A season's colour is set against a dark picture, where the darker ones
+// (Season 2's navy) could not be read. Each keeps its hue and is lifted to a
+// light, fuller tint.
+function bright(hex){
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  const l = (mx + mn) / 2, sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  return `hsl(${Math.round(h * 60)} ${Math.round(Math.max(sat, .5) * 100)}% ${Math.round(Math.max(l, .74) * 100)}%)`;
+}
+
+function render(k){
+  const s = SEASONS[k];
+  document.documentElement.style.setProperty("--accent", bright(s.accent));
+  // The last page is a bonus, not a thirteenth season, and says so.
+  document.querySelector(".num").innerHTML = s.bonus
+    ? `BONUS TRACK`
+    : `SEASON <b>${k + 1}</b> OF ${SEASONS.filter(x => !x.bonus).length}`;
+  document.querySelector(".grid").hidden = !!s.bonus;
+  $("tribute").hidden = !s.bonus;
+  // A cover with a clip behind it is a button that plays the clip; the name
+  // beside it is still the link to the song's page.
+  const row = (j, t, a, n, u, audio) =>
+    `<li class="rv right"><span class="rk">${j + 1}</span>` +
+    (audio ? `<button class="pl" type="button" data-j="${j}" aria-label="Play ${esc(t)}">${img(u)}</button>` : img(u)) +
+    `<a href="${href("t", t, a)}"><div class="m"><b>${esc(t)}</b><span>${esc(a)}</span></div>` +
+    `<span class="n">${fmt(n)}</span></a></li>`;
+  if (s.bonus) {
+    // Headroom above the tallest bar, so its rank badge is not sitting on it.
+    const mx = 1.18 * Math.max(...s.years.map(y => Math.max(y[1], y[4])));
+    $("tyears").innerHTML = s.years.map(([y, n, rk, oname, on]) =>
+      `<div class="c rv bar" title="${y}: ${esc(s.artist)} ${fmt(n)}${rk ? " (#" + rk + ")" : ""}, ${esc(oname)} ${fmt(on)}">` +
+      // A rank past ten says nothing, so those years carry only their bars.
+      `<span class="rk ${rk === 1 ? "one" : ""}">${rk && rk <= 10 ? "#" + rk : "&nbsp;"}</span>` +
+      `<div class="b"><i class="ts" style="height:${(100 * n / mx).toFixed(1)}%"></i>` +
+      `<i class="them" style="height:${(100 * on / mx).toFixed(1)}%"></i></div>` +
+      `<span class="y">'${String(y).slice(2)}</span></div>`).join("");
+    $("medley").innerHTML = s.medley.map(([t, uri, n, u, audio], j) =>
+      row(j, t, s.artist, n, u, audio)).join("");
+    $("bonuswho").textContent = s.artist;
+  }
+  wantPic = k;
+  if (!gl) $("hero").style.backgroundImage = s.art ? `url("${s.art}")` : "none";
+  const sp = s.span || {};
+  $("time").innerHTML = `<span>${esc(sp.from)}</span><span>&ndash;</span><span>${esc(sp.to)}</span>`;
+  $("title").textContent = s.title;
+  const bar = $("line").firstElementChild;
+  bar.style.left = ((sp.y0 - Y0) / (Y1 - Y0) * 100).toFixed(2) + "%";
+  setRoll(sp);
+
+  $("collage").innerHTML = (s.covers || []).map(([u, al, ar]) =>
+    `<a class="rv flip" href="${href("l", al, ar)}" title="${esc(al)}">${img(u)}</a>`).join("");
+  $("bullets").innerHTML = (s.bullets || []).map(b => `<li class="rv left">${b}</li>`).join("");
+  $("faces").innerHTML = (s.artists || []).map(([n, v, u]) =>
+    `<a class="rv pop" href="${href("a", n)}">${img(u)}<b>${esc(n)}</b><span>${fmt(v)}</span></a>`).join("");
+  $("songs").innerHTML = (s.tracks || []).map(([t, a, v, u, , audio], j) =>
+    row(j, t, a, v, u, audio)).join("");
+
+  groups = [];
+  const lbl = id => $(id).parentNode.querySelector(".lbl");
+  stage([document.querySelector(".num")], .2);
+  stage([$("time"), $("line"), $("ticks")], .7);
+  stage([$("title")], 2.1);
+  // The first line arrives alone. Each line after it arrives with one of the
+  // sections below, so the page fills a line and a section at a time.
+  const ph = two();
+  const BEAT = ph ? [2.2, 3.0, 3.8, 4.6] : [3.2, 4.8, 6.6, 8.4];
+  // On a phone the sections are the second screen, and arrive once it is up.
+  const SEC = ph ? [FLIP + .15, FLIP + .5, FLIP + 1.1] : [BEAT[1], BEAT[2], BEAT[3]];
+  const q = ph ? .5 : 1;
+  [...$("bullets").children].forEach((li, j) =>
+    stage([li], BEAT[Math.min(j, BEAT.length - 1)] + Math.max(0, j - BEAT.length + 1) * (ph ? .8 : 1.6)));
+  if (s.bonus){
+    stage([lbl("medley"), ...$("medley").children], SEC[0], .25 * q, $("medley"));
+    stage([lbl("tyears"), ...$("tyears").children, document.querySelector(".key")], SEC[1], .14 * q, $("tyears"));
+  } else {
+    stage([lbl("collage"), ...$("collage").children], SEC[0], .18 * q, $("collage"));
+    stage([lbl("songs"), ...$("songs").children], SEC[1], .25 * q, $("songs"));
+    stage([lbl("faces"), ...$("faces").children], SEC[2], .2 * q, $("faces"));
+  }
+  // Nothing is staged with the show paused or motion switched off: a page
+  // turned by hand while paused is simply all there.
+  if (calm || (started && !playing)) showAll();
+  rowOn = -1; extra = 0;
+  playPage();
+  // The counter counts seasons, as the line on the picture does.
+  const real = SEASONS.filter(x => !x.bonus).length;
+  $("count").textContent = s.bonus ? "Bonus" : `${k + 1} / ${real}`;
+  $("bhead").innerHTML = s.bonus ? `Bonus track &middot; <b>${esc(s.title)}</b>`
+    : `Season ${k + 1} of ${real} &middot; <b>${esc(s.title)}</b>`;
+  setFace(0);
+
+  [...prog.children].forEach((el, j) =>
+    el.style.setProperty("--f", j < k ? "100%" : "0%"));
+}
+
+let turning = 0;
+function go(k){
+  if (!started) begin(true);
+  i = (k + SEASONS.length) % SEASONS.length;
+  const sc = $("scene");
+  // The words leave quickly; the picture stays and dissolves into the next.
+  sc.classList.add("out");
+  groups = [];
+  if (typeof fadeTo === "function" && !aud.paused) fadeTo(0, 200);
+  clearTimeout(turning);
+  turning = setTimeout(() => {
+    elapsed = 0; t0 = performance.now();
+    render(i); sc.classList.remove("out");
+  }, 220);
+  elapsed = 0; t0 = performance.now();
+}
+
+function tick(now){
+  if (playing) elapsed = now - t0; else t0 = now - elapsed;
+  if (playing && face === 0 && two() && elapsed >= FLIP * 1000 * unit()) setFace(1);
+  if (playing){
+    const f = Math.min(1, elapsed / holdNow());
+    prog.children[i].style.setProperty("--f", (f * 100).toFixed(1) + "%");
+    if (f >= 1){
+      if (i === SEASONS.length - 1){ playing = false; paintPlay(); }
+      else go(i + 1);
+    }
+  }
+  reveal(); roll(); draw(now);
+  raf = requestAnimationFrame(tick);
+}
+
+/* ---- the picture ---------------------------------------------------------
+   Drawn on a canvas so it can move like a shot rather than sit like a slide:
+   the camera drifts and zooms slowly for as long as the season is up, things
+   near the camera shift a little more than things far away (the depth map
+   says which is which), and one season's picture dissolves into the next.
+   Without WebGL the picture is the hero's plain background, as it was. */
+const cv = $("bg"), hero = $("hero");
+let gl = null, U = {}, wantPic = 0, A = null, B = null, fadeAt = 0, lastNow = 0, sig = "";
+const FADE = 900, PAR = .03;
+let mx = 0, my = 0, tx = 0, ty = 0;      // where the mouse is over the picture
+function initGL(){
+  try { gl = cv.getContext("webgl", {alpha: false, antialias: false}); } catch (e) { gl = null; }
+  if (!gl) return;
+  const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src);
+                              gl.compileShader(o); return o; };
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER,
+    "attribute vec2 p;varying vec2 v;void main(){v=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0.,1.);}"));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER, `
+    #ifdef GL_FRAGMENT_PRECISION_HIGH
+    precision highp float;
+    #else
+    precision mediump float;
+    #endif
+    varying vec2 v; uniform sampler2D ia, da, ib, db;
+    uniform vec3 ca, cb; uniform vec2 pa, pb, fit; uniform float mixv, hasb;
+    vec3 shot(sampler2D im, sampler2D de, vec3 c, vec2 par){
+      vec2 uv = (v - .5) * fit / c.x + .5 + c.yz;
+      uv += (texture2D(de, uv).r - .5) * par;
+      return texture2D(im, uv).rgb;
+    }
+    void main(){
+      vec3 a = shot(ia, da, ca, pa);
+      vec3 b = hasb > .5 ? shot(ib, db, cb, pb) : vec3(.067);
+      gl_FragColor = vec4(mix(b, a, mixv), 1.);
+    }`));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { gl = null; return; }
+  gl.useProgram(p);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(p, "p");
+  gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  ["ia","da","ib","db","ca","cb","pa","pb","fit","mixv","hasb"].forEach(n =>
+    U[n] = gl.getUniformLocation(p, n));
+  [U.ia, U.da, U.ib, U.db].forEach((u, n) => gl.uniform1i(u, n));
+  cv.addEventListener("webglcontextlost", () => {
+    gl = null; cv.hidden = true;
+    hero.style.backgroundImage = SEASONS[i].art ? `url("${SEASONS[i].art}")` : "none";
+  });
+}
+function tex(src){
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(w => gl.texParameteri(gl.TEXTURE_2D, w, gl.CLAMP_TO_EDGE));
+  [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(f => gl.texParameteri(gl.TEXTURE_2D, f, gl.LINEAR));
+  if (src) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  // No map: one mid-grey dot, which is a picture with no near or far.
+  else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+                     new Uint8Array([128, 128, 128, 255]));
+  return t;
+}
+const drop = L => { if (L) { gl.deleteTexture(L.im); gl.deleteTexture(L.de); } };
+// Where the camera is, t seconds into a season. Each season moves a different
+// way: in or out, and along one of four lines.
+function cam(k, t){
+  t = calm ? 0 : Math.min(t, 24);
+  const z = k % 2 ? 1.24 - .005 * t : 1.08 + .005 * t;
+  const dx = [1, -1, .8, -.8][k % 4], dy = [0, 0, -.5, .5][k % 4];
+  const d = t / 15 - .5;
+  return {c: [z, dx * d * .03, dy * d * .03],
+          p: [dx * d * PAR + mx * .014, dy * d * PAR + my * .014]};
+}
+function draw(now){
+  if (!gl) return;
+  const dt = (now - lastNow) / 1000; lastNow = now;
+  mx += (tx - mx) * .07; my += (ty - my) * .07;
+  // The next picture is taken up once it, and its map, have arrived.
+  if ((!A || A.k !== wantPic) && ready(PICS[wantPic]) &&
+      (ready(DEPS[wantPic]) || failed(DEPS[wantPic]))){
+    drop(B); B = A;
+    A = {k: wantPic, im: tex(PICS[wantPic]), e: 0,
+         de: tex(ready(DEPS[wantPic]) ? DEPS[wantPic] : null)};
+    fadeAt = now;
+  }
+  if (!A) return;
+  A.e = A.k === i ? elapsed / 1000 : A.e + dt;
+  let m = Math.min(1, (now - fadeAt) / FADE);
+  if (B){ B.e += dt; if (m >= 1){ drop(B); B = null; } }
+  const r = hero.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+  const W = Math.max(2, Math.round(Math.min(1800, r.width * dpr))),
+        H = Math.max(2, Math.round(W * r.height / Math.max(1, r.width)));
+  const ca = cam(A.k, A.e), cb = B ? cam(B.k, B.e) : null;
+  const s = [W, H, m, ca.c, ca.p, cb && cb.c, cb && cb.p].join();
+  if (s === sig) return;
+  sig = s;
+  if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; gl.viewport(0, 0, W, H); }
+  const asp = W / H, IA = 1.5;
+  gl.uniform2f(U.fit, asp > IA ? 1 : asp / IA, asp > IA ? IA / asp : 1);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, A.im);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, A.de);
+  gl.uniform3fv(U.ca, ca.c); gl.uniform2fv(U.pa, ca.p);
+  if (B){
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, B.im);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, B.de);
+    gl.uniform3fv(U.cb, cb.c); gl.uniform2fv(U.pb, cb.p);
+  }
+  gl.uniform1f(U.hasb, B ? 1 : 0);
+  gl.uniform1f(U.mixv, m * m * (3 - 2 * m));
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+initGL();
+if (!gl) cv.hidden = true;
+// A mouse over the picture leans the view a little, near things most.
+hero.addEventListener("pointermove", e => {
+  if (e.pointerType !== "mouse" || calm) return;
+  const r = hero.getBoundingClientRect();
+  tx = (e.clientX - r.left) / r.width - .5; ty = (e.clientY - r.top) / r.height - .5;
+});
+hero.addEventListener("pointerleave", () => { tx = ty = 0; });
+
+/* ---- the music ---------------------------------------------------------
+   One audio element in this page, playing Spotify's 30-second preview of each
+   season's song. The embedded Spotify player cannot be started from outside
+   itself on a phone; an audio element that one tap has started can be given
+   the next clip without another tap. The start screen is that one tap. */
+let sound = true, started = false;
+const aud = new Audio();
+aud.preload = "auto";
+window.seasonsAudio = aud;   // reachable from the console, to check playback
+// Spotify's app evens out loudness and its preview clips do not, so at full
+// volume these play louder than the same song in the app. Half is level with
+// it. Each clip fades in, and fades out as the page turns. (iPhone and iPad
+// ignore a page's volume, so there this is the device's own level.)
+const LEVEL = 0.5;
+let fadeTimer = 0;
+function fadeTo(target, ms, done){
+  clearInterval(fadeTimer);
+  const from = aud.volume, t0f = Date.now();
+  fadeTimer = setInterval(() => {
+    const k = Math.min(1, (Date.now() - t0f) / ms);
+    try { aud.volume = from + (target - from) * k; } catch (e) {}
+    if (k >= 1) { clearInterval(fadeTimer); if (done) done(); }
+  }, 30);
+}
+const ICON = {on: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z"/><path d="M16.5 12a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/><path d="M14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>', off: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z"/><path d="M16.6 9.2l1.4-1.4 2.2 2.2 2.2-2.2 1.4 1.4-2.2 2.2 2.2 2.2-1.4 1.4-2.2-2.2-2.2 2.2-1.4-1.4 2.2-2.2z"/></svg>'};
+const paintSound = () => {
+  $("sound").innerHTML = sound ? ICON.on : ICON.off;
+  $("sound").setAttribute("aria-label", sound ? "Mute" : "Sound on");
+  $("np").classList.toggle("on", sound && started);
+};
+
+// What is playing, named in the corner of the picture, with the way to the
+// whole song. The three bars move while it plays.
+function playClip(c){
+  if (!c || !c.audio) return;
+  $("np").innerHTML = `${img(c.cover)}<div class="m"><b>${esc(c.t)}</b><span>${esc(c.a)}</span></div>` +
+    `<span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>` +
+    (c.uri ? `<a href="https://open.spotify.com/${c.uri.split(":")[1]}/${esc(c.uri.split(":")[2])}" ` +
+             `target="_blank" rel="noopener" aria-label="Open in Spotify">Spotify</a>` : "");
+  clearInterval(fadeTimer);
+  aud.src = c.audio;
+  try { aud.volume = 0; } catch (e) {}
+  // A podcast opens with adverts; start a couple of minutes in, on the talk.
+  if (c.start) aud.addEventListener("loadedmetadata",
+    () => { try { aud.currentTime = c.start; } catch (e) {} }, {once: true});
+  aud.play().then(() => fadeTo(LEVEL, 700)).catch(() => {});
+}
+const clipOf = s => s.track;
+
+// Which row of the song list is the one playing, if any.
+let rowOn = -1;
+const rowList = () => $(SEASONS[i].bonus ? "medley" : "songs");
+const markRow = j => { rowOn = j;
+  [...rowList().children].forEach((li, x) => li.classList.toggle("on", x === j)); };
+
+// Four songs, a quarter of the page's time each, one after another.
+let medleyTimers = [];
+function stopMedley(){ medleyTimers.forEach(clearTimeout); medleyTimers = []; }
+function startMedley(s){
+  const per = HOLD_MEDLEY / s.medley.length;
+  s.medley.forEach(([t, uri, , cover, audio], j) => medleyTimers.push(setTimeout(() => {
+    markRow(j); playClip({t, a: s.artist, uri, cover, audio});
+  }, j * per)));
+}
+function playPage(){
+  stopMedley();
+  if (!sound || !started) return;
+  SEASONS[i].bonus ? startMedley(SEASONS[i]) : playClip(clipOf(SEASONS[i]));
+}
+
+// Tapping a song's cover plays that song in place of the season's, and gives
+// the page a full turn's time from that moment. Tapping it again pauses.
+function playRow(j){
+  const s = SEASONS[i], r = (s.bonus ? s.medley : s.tracks)[j];
+  const c = s.bonus ? {t: r[0], a: s.artist, uri: r[1], cover: r[3], audio: r[4]}
+                    : {t: r[0], a: r[1], cover: r[3], uri: r[4], audio: r[5]};
+  if (!c.audio) return;
+  if (rowOn === j && sound){ setPlaying(!playing); return; }
+  stopMedley();
+  sound = true; HOLD = holdFor(true); extra = elapsed;
+  playing = true; paintPlay(); paintSound();
+  markRow(j); playClip(c);
+}
+["songs", "medley"].forEach(id => $(id).addEventListener("click", e => {
+  const b = e.target.closest(".pl"); if (b) playRow(+b.dataset.j);
+}));
+
+$("sound").addEventListener("click", () => {
+  sound = !sound;
+  paintSound();
+  HOLD = holdFor(sound);
+  // A full turn's time from here, without sending the picture back to its start.
+  extra = elapsed;
+  if (sound) playPage(); else { stopMedley(); aud.pause(); markRow(-1); }
+});
+
+const paintPlay = () => {
+  $("play").innerHTML = playing ? "&#10073;&#10073;" : "&#9654;";
+  document.body.classList.toggle("paused", !playing);
+};
+function setPlaying(v){
+  playing = v;
+  // Paused part-way through, the sections still waiting their turn would stay
+  // blank for as long as the pause lasts. A pause shows the whole season.
+  if (!v) showAll();
+  $("play").setAttribute("aria-label", v ? "Pause" : "Play");
+  paintPlay();
+  if (sound) { playing ? aud.play().catch(() => {}) : aud.pause(); }
+}
+$("play").addEventListener("click", () => {
+  if (!started) return begin(true);
+  setPlaying(!playing);
+});
+
+// The start screen: one obvious button, which is also the tap a browser needs
+// before it will play anything.
+function begin(withSound){
+  started = true; sound = withSound; playing = true;
+  HOLD = holdFor(sound);
+  $("start").hidden = true;
+  paintSound(); paintPlay();
+  elapsed = 0; t0 = performance.now();
+  playPage();
+}
+$("go-sound").addEventListener("click", () => begin(true));
+$("go-quiet").addEventListener("click", () => begin(false));
+
+$("next").addEventListener("click", () => go(i + 1));
+// From a season's second screen on a phone, back is its first screen.
+$("prev").addEventListener("click", () => go(two() && face === 1 ? i : i - 1));
+addEventListener("keydown", e => {
+  if (e.key === " "){ e.preventDefault(); $("play").click(); }
+  else if (e.key === "ArrowRight") go(i + 1);
+  else if (e.key === "ArrowLeft") go(i - 1);
+});
+
+// The picture works the way a story does on a phone: a tap on its left third
+// goes back, a tap anywhere else goes on, and pressing and holding pauses
+// until let go.
+let holdTimer = 0, held = false, down = null;
+hero.addEventListener("pointerdown", e => {
+  if (!started || e.button || e.target.closest(".np")) return;
+  down = {x: e.clientX, y: e.clientY}; held = false;
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => { if (playing){ held = true; setPlaying(false); } }, 300);
+});
+const release = (e, tap) => {
+  clearTimeout(holdTimer);
+  if (!down) return;
+  const d = down; down = null;
+  if (held){ held = false; setPlaying(true); return; }
+  if (!tap || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return;
+  const r = hero.getBoundingClientRect();
+  if (e.clientX - r.left < r.width * .3) return go(i - 1);
+  // On a phone the first tap turns to the season's second screen.
+  if (two() && face === 0){
+    elapsed = Math.max(elapsed, FLIP * 1000 * unit()); t0 = performance.now() - elapsed;
+    return setFace(1);
+  }
+  go(i + 1);
+};
+hero.addEventListener("pointerup", e => release(e, true));
+hero.addEventListener("pointercancel", e => release(e, false));
+hero.addEventListener("pointerleave", e => release(e, false));
+hero.addEventListener("contextmenu", e => e.preventDefault());
+
+paintSound(); paintPlay();
+// Handed over once typing pauses, so nothing typed mid-load is lost.
+let sTimer = 0;
+$("s").addEventListener("input", e => {
+  clearTimeout(sTimer);
+  const v = e.target.value;
+  if (v.trim()) sTimer = setTimeout(() =>
+    location.href = "/#/?s=" + encodeURIComponent(v), 400);
+});
+// Typing in the box should not also drive the slideshow's keys.
+$("s").addEventListener("keydown", e => e.stopPropagation());
+// The header is one row on a laptop and two on a phone, so what sits under
+// it is placed from its measured height.
+const hdrH = () => document.documentElement.style.setProperty(
+  "--hdr", document.querySelector(".hdr").offsetHeight + "px");
+hdrH(); addEventListener("resize", hdrH);
+// story.html#7 opens on Season 7, which is how an artist's page links here.
+{ const h = parseInt(location.hash.slice(1), 10);
+  if (h >= 1 && h <= SEASONS.length) i = h - 1; }
+render(i);
+t0 = performance.now();
+raf = requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

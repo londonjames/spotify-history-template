@@ -1,0 +1,7 @@
+# Songs you played for someone else but were in the room for: a lullaby on
+# repeat, say. They stay counted as yours and carry a small tag on the site
+# (the tag's wording is "bedtime_label" in config.json).
+#
+# One per line:   Artist :: Track
+# or with a line shown on the song's own page:
+#                 Artist :: Track :: A sentence about why it is here.

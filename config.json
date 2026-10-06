@@ -1,0 +1,19 @@
+{
+  "name": "Me",
+  "timezone": "America/Los_Angeles",
+  "site": "",
+  "home": {
+    "label": "home",
+    "lat": 0.0,
+    "lon": 0.0,
+    "country": "US",
+    "cities": []
+  },
+  "not_a_trip": [
+    "Ashburn",
+    "Sterling"
+  ],
+  "bedtime_label": "BEDTIME",
+  "ambient_sql": "",
+  "rename": {}
+}

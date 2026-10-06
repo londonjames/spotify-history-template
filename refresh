@@ -1,0 +1,117 @@
+#!/bin/bash
+# One command for "I downloaded a new Spotify export."
+#
+#   1. Download your data from spotify.com/account/privacy
+#   2. Leave the .zip in ~/Downloads (don't unzip it)
+#   3. Run ./refresh
+#
+# It finds the export, unpacks it into exports/, merges it with everything
+# already loaded (de-duplicating the overlap), rebuilds every page's data,
+# regenerates the pages and stages site/. Look at the result with ./serve. It
+# does not deploy; publish.py prints the command for that. Safe to run any
+# number of times.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+# export.py made this on its way to web/index.json and no longer runs here.
+# Nothing downstream creates its own output directory.
+mkdir -p web
+
+echo "── ingesting exports ──────────────────────────────"
+python3 load.py
+
+echo
+echo "── release years ──────────────────────────────────"
+# load.py does not write release_year; only this does, and it asks Spotify. A
+# recording with no year is dropped from the vintage median and the decade
+# strip rather than counted wrong, so leaving it out does not fail the build,
+# it quietly narrows what the newest season is measured over. Not fatal when
+# the network or the token is unavailable -- the rest of the run is still
+# correct, and the gap is printed rather than swallowed.
+if python3 vintage.py && python3 vintage.py --apply; then
+  :
+else
+  echo "  release years not updated; the newest recordings will have none."
+  echo "  Run: python3 vintage.py && python3 vintage.py --apply"
+fi
+
+echo
+echo "── review gate ────────────────────────────────────"
+if ! python3 review.py; then
+  echo
+  echo "Refusing to build: shows above have no verdict yet."
+  echo "Decide each with: python3 review.py --hide \"Name\" | --keep \"Name\""
+  echo "or clear them all at once: python3 review.py --keep-all"
+  exit 1
+fi
+
+echo
+echo "── pictures ───────────────────────────────────────"
+# Covers and photographs for whatever is new in this export. Both scripts keep
+# a cache and only ask Spotify about what they have not seen, so a routine run
+# is a handful of requests. Not fatal here: check_art.py below is what stops
+# the build if a row at the top of a list would be left with an empty square.
+python3 art.py | tail -4 || echo "  song, album and artist pictures not updated."
+python3 art_shows.py | tail -1 || echo "  podcast covers not updated."
+
+echo
+echo "── building the publishable database ──────────────"
+python3 publish_db.py
+
+echo
+echo "── building page data ─────────────────────────────"
+# Where the listening happened. Reads the exports, so it has to run again when
+# a new one arrives or the trips stop at the previous export's last day.
+python3 cities.py || echo "  cities not updated; the places cards keep their old figures."
+python3 web_data.py
+# Faces for podcast people who are new in this export (free lookups, no key).
+# web_data.py has to have run first, since it is what names the people, and
+# runs once more after so the new faces reach the page.
+if python3 people_art.py; then
+  python3 publish_db.py > /dev/null
+  python3 web_data.py > /dev/null
+fi
+# Every row at the top of a list has a picture, or the build stops here and
+# names the ones that do not.
+# A change to the tags can move a pick to a song whose cover was never fetched,
+# because art.py chose from the database as it stood before this run. One more
+# pass fetches those, so an unattended run does not stop here for that.
+if ! python3 check_art.py > /dev/null 2>&1; then
+  python3 art.py | tail -4 || true
+  python3 publish_db.py > /dev/null
+  python3 web_data.py > /dev/null
+fi
+# A warning, not a stop: a row without a picture shows a plain square. Run
+# with STRICT_ART=1 to make it stop the build, which is right for a public site.
+if ! python3 check_art.py; then
+  if [ "${STRICT_ART:-}" = "1" ]; then
+    echo "Refusing to build: the rows above would show an empty square."
+    exit 1
+  fi
+  echo "  continuing: the rows above will show without a picture."
+fi
+# phases.py recounts the story page's seasons from the new data; the dates and
+# the writing are its input, so only the figures move. story_data.py then reads
+# what it wrote, and stops the build if the prose has drifted from it.
+if [ -f seasons.json ]; then
+  python3 phases.py
+  # Forget song clips whose address has expired, so story_data.py reads a new
+  # one, then stop if a season is still left with nothing to play.
+  python3 check_clips.py
+  python3 story_data.py
+  python3 check_clips.py --built
+else
+  echo "  no seasons.json, so no Seasons page (README: Seasons)"
+  rm -f web/phases.json web/story.json web/listening-story.html
+fi
+
+echo
+echo "── building pages ─────────────────────────────────"
+python3 build.py
+
+echo
+echo "── staging site/ ──────────────────────────────────"
+python3 publish.py
+
+echo
+echo "Look at it:  ./serve"

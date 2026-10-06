@@ -1,0 +1,3 @@
+# Podcast shows and audiobooks that never appear on any page. One title per
+# line, exactly as Spotify names it. Their hours still count in the totals.
+# Add one with:  python3 review.py --hide "Show Name"
